@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agent Playground — 可视化学习 Agent 底层逻辑</title>
+
+<!-- 零构建技术栈:Tailwind CDN + Alpine.js + Chart.js + Split.js -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/split.js@1.6.5/dist/split.min.js"></script>
+
+<style>
+  :root {
+    --ink: #161916;
+    --muted: #687269;
+    --paper: #f3f0e7;
+    --panel: rgba(255, 253, 246, .92);
+    --panel-strong: #fffdf6;
+    --line: #d9d1bf;
+    --line-strong: #252a24;
+    --cobalt: #175cff;
+    --signal: #23c55e;
+    --amber: #d97706;
+    --red: #dc2626;
+    --violet: #7c3aed;
+    --cyan: #0891b2;
+    --shadow: 0 20px 45px rgba(38, 33, 22, .08);
+  }
+
+  html, body { min-height: 100%; margin: 0; }
+  body {
+    font-family: "Instrument Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 14% 18%, rgba(35, 197, 94, .12), transparent 24%),
+      linear-gradient(90deg, rgba(22,25,22,.045) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(22,25,22,.045) 1px, transparent 1px),
+      var(--paper);
+    background-size: auto, 28px 28px, 28px 28px, auto;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(rgba(255,255,255,.24) 1px, transparent 1px);
+    background-size: 100% 4px;
+    mix-blend-mode: soft-light;
+    opacity: .4;
+  }
+  pre, code, .font-mono {
+    font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre { font-size: 12px; line-height: 1.55; }
+  .app-topbar {
+    background: rgba(255, 253, 246, .86);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--line-strong);
+    box-shadow: 0 1px 0 rgba(255,255,255,.7) inset;
+  }
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+  .app-title {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+  .app-subtitle {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .safety-strip {
+    background: #241f17;
+    color: #f5eddc;
+    border-bottom: 1px solid #090a08;
+  }
+  .safety-strip code {
+    background: rgba(245, 237, 220, .12);
+    color: #fff8e8;
+    border: 1px solid rgba(245, 237, 220, .2);
+  }
+  #main-split {
+    gap: 0;
+  }
+  main .bg-white {
+    background: var(--panel);
+    border-color: var(--line);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(16px);
+  }
+  .panel-title {
+    color: var(--ink);
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+  .section-kicker {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .card-hover {
+    transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    background: rgba(255, 253, 246, .68);
+  }
+  .card-hover:hover {
+    transform: translateY(-1px);
+    border-color: var(--line-strong);
+    box-shadow: 0 10px 22px rgba(38, 33, 22, .08);
+  }
+  .badge {
+    padding: 3px 9px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+  }
+  input[type="text"], textarea {
+    background: rgba(255, 253, 246, .82);
+    border-color: var(--line) !important;
+    color: var(--ink);
+    outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  input[type="text"]:focus, textarea:focus {
+    border-color: var(--cobalt) !important;
+    box-shadow: 0 0 0 3px rgba(23, 92, 255, .14);
+    background: var(--panel-strong);
+  }
+  input[type="range"] {
+    accent-color: var(--ink);
+  }
+  button {
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  .scroll-fade { mask-image: linear-gradient(to bottom, black 90%, transparent); }
+
+  /* 时间轴竖线 */
+  .timeline-item { position: relative; padding-left: 24px; }
+  .timeline-item::before {
+    content: ""; position: absolute; left: 8px; top: 22px; bottom: -12px;
+    width: 2px; background: repeating-linear-gradient(to bottom, var(--line-strong) 0 4px, transparent 4px 8px);
+    opacity: .38;
+  }
+  .timeline-item:last-child::before { display: none; }
+  .timeline-dot {
+    position: absolute; left: 2px; top: 10px;
+    width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--panel-strong);
+    box-shadow: 0 0 0 1px rgba(22,25,22,.28);
+  }
+
+  /* ===== Split.js 分栏样式 ===== */
+  .split { display: flex; flex-direction: row; height: 100%; }
+  .split > .pane { overflow: hidden; display: flex; flex-direction: column; }
+  /* 水平 gutter(三栏之间的竖条) */
+  .gutter.gutter-horizontal {
+    background:
+      linear-gradient(var(--line-strong), var(--line-strong)) center/1px 38px no-repeat,
+      transparent;
+    cursor: col-resize;
+    width: 14px;
+    transition: background .15s, opacity .15s;
+    opacity: .55;
+  }
+  .gutter.gutter-horizontal:hover {
+    background:
+      linear-gradient(var(--cobalt), var(--cobalt)) center/2px 56px no-repeat,
+      rgba(23, 92, 255, .08);
+    opacity: 1;
+  }
+  /* 垂直 gutter(中/右栏上下两块之间) */
+  .v-split { display: flex; flex-direction: column; height: 100%; }
+  .v-split > .pane { overflow: hidden; display: flex; flex-direction: column; }
+  .gutter.gutter-vertical {
+    background:
+      linear-gradient(90deg, var(--line-strong), var(--line-strong)) center/54px 1px no-repeat,
+      transparent;
+    cursor: row-resize;
+    height: 14px;
+    transition: background .15s, opacity .15s;
+    opacity: .55;
+  }
+  .gutter.gutter-vertical:hover {
+    background:
+      linear-gradient(90deg, var(--cobalt), var(--cobalt)) center/72px 2px no-repeat,
+      rgba(23, 92, 255, .08);
+    opacity: 1;
+  }
+  .message-user {
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 10px 24px rgba(22, 25, 22, .12);
+  }
+  .message-assistant {
+    background: #fff8df;
+    border: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .console-slab {
+    background: #171a17 !important;
+    color: #e8f2df;
+    border: 1px solid #0a0c09 !important;
+  }
+  .console-slab pre, pre.console-slab {
+    color: #e8f2df;
+  }
+  .metric-chip {
+    border: 1px solid var(--line);
+    background: rgba(255, 253, 246, .72);
+    padding: 6px 9px;
+    border-radius: 4px;
+  }
+  .tool-list {
+    max-height: 230px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .tool-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .tool-card {
+    padding: 7px 8px;
+  }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    display: inline-block;
+    background: var(--signal);
+    box-shadow: 0 0 0 5px rgba(35, 197, 94, .12);
+  }
+  .pulse-dot.off {
+    background: var(--red);
+    box-shadow: 0 0 0 5px rgba(220, 38, 38, .12);
+  }
+
+  @media (max-width: 959px) {
+    body { overflow: auto; }
+    .split, .v-split {
+      display: block;
+      height: auto !important;
+    }
+    .split > .pane, .v-split > .pane {
+      width: 100% !important;
+      height: auto !important;
+      min-height: 320px;
+      margin-bottom: 12px;
+      overflow: visible;
+    }
+    #main-split {
+      height: auto !important;
+      padding: 10px !important;
+    }
+    main .bg-white {
+      max-height: none;
+    }
+    .gutter { display: none; }
+    .app-title { font-size: 16px; }
+    .app-subtitle { display: none; }
+  }
+</style>
+</head>
+
+<body x-data="agentPlayground()"
+      x-init="init()">
+
+<!-- ========== 顶部栏 ========== -->
+<header class="app-topbar px-6 py-3 flex items-center justify-between flex-wrap gap-3">
+  <div class="flex items-center gap-3">
+    <div class="brand-mark">AP</div>
+    <div>
+      <div class="app-title">Agent Playground</div>
+      <div class="app-subtitle">Trace Lab / Token Observatory</div>
+    </div>
+  </div>
+  <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
+    <!-- 后端地址 -->
+    <label class="section-kicker">后端</label>
+    <input type="text" x-model="backendUrl"
+           class="border rounded px-2 py-1 w-52 text-xs font-mono"
+           placeholder="http://127.0.0.1:8000" />
+
+    <!-- Endpoint 覆盖(API Key 永远只在后端.env) -->
+    <label class="section-kicker ml-2" title="覆盖后端 .env 中的 ARK_MODEL,留空则用默认。API Key 永远在后端,前端无法修改。">
+      Endpoint
+    </label>
+    <input type="text" x-model="modelOverride"
+           class="border rounded px-2 py-1 w-40 text-xs font-mono"
+           placeholder="ep-xxxxxx (留空=默认)" />
+
+    <span class="badge"
+          :class="backendOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+      <span class="pulse-dot mr-2 align-middle" :class="backendOnline ? '' : 'off'"></span>
+      <span x-text="backendOnline ? '已连接' : '未连接'"></span>
+    </span>
+  </div>
+</header>
+
+<!-- 安全提示小横条 -->
+<div class="safety-strip px-6 py-2 text-[11px]">
+  <b>安全设计</b>: API Key 只在后端 <code class="px-1 rounded">backend/.env</code> 里,前端永远拿不到。这里只能改 endpoint id。
+  <span class="ml-2 opacity-75">所有面板之间的细线可拖拽调整宽高。</span>
+</div>
+
+<!-- ========== 三栏水平布局(可拖拽) ========== -->
+<main id="main-split" class="split" style="height: calc(100vh - 92px); padding: 12px;">
+
+  <!-- ========== 左栏:配置面板 ========== -->
+  <aside id="pane-left" class="pane">
+    <div class="bg-white rounded-lg border border-gray-200 p-4 flex-1 overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="section-kicker">Control Plane</div>
+          <h2 class="panel-title text-lg">配置</h2>
+        </div>
+        <div class="metric-chip text-[11px]">
+          <span class="font-mono" x-text="enabledTools.length"></span>/<span class="font-mono" x-text="allTools().length"></span> tools
+        </div>
+      </div>
+
+      <!-- System Prompt -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label class="section-kicker">System Prompt</label>
+          <div class="flex gap-1">
+            <template x-for="(preset, i) in systemPromptPresets" :key="i">
+              <button @click="systemPrompt = preset.prompt"
+                      class="text-[10px] px-2 py-0.5 rounded border border-gray-300
+                             hover:bg-gray-900 hover:text-stone-50 text-gray-600 transition-colors">
+                <span x-text="preset.label"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+        <textarea x-model="systemPrompt"
+                  class="w-full border rounded p-3 text-xs font-mono leading-snug"
+                  rows="9"></textarea>
+        <p class="text-[11px] text-gray-400 mt-1">修改后,下次运行生效(不影响当前会话已有历史)</p>
+      </div>
+
+      <!-- 工具勾选 -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <label class="section-kicker">工具实验室</label>
+          <button @click="startNewTool()"
+                  class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-gray-900 hover:text-stone-50">
+            新增工具
+          </button>
+        </div>
+        <div class="text-[11px] text-gray-500 mb-2">
+          内置工具是真实执行；自定义工具会作为 mock tool 进入模型 tools schema,用于观察命名、描述和参数结构如何影响模型选择。
+        </div>
+        <label class="flex items-start gap-2 text-xs border border-stone-300 rounded px-2 py-2 bg-stone-50 mb-3">
+          <input type="checkbox" x-model="manualToolMode" class="mt-0.5" />
+          <span>
+            <span class="font-semibold text-gray-800">人工接管工具返回</span>
+            <span class="block text-gray-500 mt-0.5">模型决定调用工具后先暂停,由你填写或修改工具 observation,再继续观察模型响应。</span>
+          </span>
+        </label>
+
+        <div x-show="editingTool" class="mt-3 border border-stone-300 rounded p-3 bg-stone-50">
+          <div class="flex items-center justify-between mb-2">
+            <div class="section-kicker" x-text="toolDraft.originalName ? '编辑 Mock Tool' : '新增 Mock Tool'"></div>
+            <button @click="closeToolEditor()" class="text-[11px] text-gray-500 hover:text-gray-900">关闭</button>
+          </div>
+
+          <label class="text-[11px] font-semibold text-gray-600">Name</label>
+          <input x-model="toolDraft.name" type="text"
+                 class="w-full border rounded px-2 py-1 text-xs font-mono mb-2"
+                 placeholder="lookup_order_status" />
+
+          <label class="text-[11px] font-semibold text-gray-600">Description</label>
+          <textarea x-model="toolDraft.description"
+                    class="w-full border rounded px-2 py-1 text-xs mb-2"
+                    rows="3"
+                    placeholder="写给模型看的工具说明,越具体越会影响模型是否调用。"></textarea>
+
+          <label class="text-[11px] font-semibold text-gray-600">Parameters JSON Schema</label>
+          <textarea x-model="toolDraft.parametersText"
+                    class="w-full border rounded px-2 py-1 text-xs font-mono mb-2"
+                    rows="7"></textarea>
+
+          <label class="text-[11px] font-semibold text-gray-600">Mock 返回模板</label>
+          <textarea x-model="toolDraft.response_template"
+                    class="w-full border rounded px-2 py-1 text-xs font-mono mb-1"
+                    rows="4"
+                    placeholder="支持 {{tool_name}} 和 {{args_json}}"></textarea>
+          <div class="text-[10px] text-gray-500 mb-2">模板变量: <code>{{tool_name}}</code>, <code>{{args_json}}</code>, <code>{{arg.xxx}}</code></div>
+
+          <div x-show="toolEditorError" class="text-[11px] text-red-700 mb-2" x-text="toolEditorError"></div>
+          <button @click="saveToolDraft()"
+                  class="w-full text-xs bg-gray-900 hover:bg-black text-stone-50 py-2 rounded font-semibold">
+            保存工具
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 mt-3">
+          <button @click="addToolExamples()"
+                  class="text-[11px] border border-stone-300 rounded py-1 hover:bg-white">
+            加入示例工具
+          </button>
+          <button @click="resetCustomTools()"
+                  class="text-[11px] border border-stone-300 rounded py-1 hover:bg-white">
+            清空自定义
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between mt-3 mb-1">
+          <div class="section-kicker">已启用 / 可用工具</div>
+          <div class="text-[10px] text-gray-500">
+            <span x-text="customTools.length"></span> mock
+          </div>
+        </div>
+        <div class="tool-list">
+          <template x-for="t in allTools()" :key="t.name">
+            <div class="mb-1.5 border rounded text-xs card-hover tool-card">
+              <div class="flex items-start gap-2">
+                <label class="flex-1 cursor-pointer min-w-0">
+                  <input type="checkbox" :value="t.name" x-model="enabledTools"
+                         class="mt-0.5 mr-2" />
+                  <span class="font-mono font-medium text-gray-800 break-all" x-text="t.name"></span>
+                  <span class="badge ml-1"
+                        :class="t.source === 'custom' ? 'bg-cyan-100 text-cyan-700' : 'bg-stone-100 text-stone-700'"
+                        x-text="t.source === 'custom' ? 'mock' : 'built-in'"></span>
+                  <div class="tool-description text-gray-500 mt-0.5" :title="t.description" x-text="t.description"></div>
+                </label>
+                <div class="flex gap-1 shrink-0">
+                  <button @click="duplicateTool(t)"
+                          class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-white">
+                    复制
+                  </button>
+                  <button x-show="t.source === 'custom'" @click="editTool(t)"
+                          class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-white">
+                    编辑
+                  </button>
+                  <button x-show="t.source === 'custom'" @click="deleteCustomTool(t.name)"
+                          class="text-[10px] px-2 py-0.5 rounded border border-red-200 text-red-700 hover:bg-red-50">
+                    删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- MAX_STEPS -->
+      <div class="mb-4">
+        <label class="section-kicker block mb-1">
+          MAX_STEPS: <span class="font-mono" x-text="maxSteps"></span>
+        </label>
+        <input type="range" min="1" max="20" x-model.number="maxSteps" class="w-full" />
+        <p class="text-[11px] text-gray-400 mt-1">循环上限,防止 agent 死循环烧钱</p>
+      </div>
+
+      <!-- 清空会话 -->
+      <button @click="resetSession()"
+              class="w-full text-xs bg-gray-900 hover:bg-black text-stone-50 py-2 rounded font-semibold">
+        清空会话历史
+      </button>
+
+      <!-- 帮助示例 -->
+      <div class="mt-5 border-t pt-3">
+        <div class="section-kicker mb-2">示例任务</div>
+        <template x-for="(ex, i) in examples" :key="i">
+          <button @click="userInput = ex.text"
+                  class="block w-full text-left text-xs bg-stone-100 hover:bg-white
+                         text-gray-800 border border-stone-200 px-2 py-1.5 rounded mb-1">
+            <span class="font-medium" x-text="ex.label"></span>
+            <span class="text-gray-500" x-text="'  ' + ex.text"></span>
+          </button>
+        </template>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========== 中栏:对话 ========== -->
+  <section id="pane-mid" class="pane">
+    <div class="bg-white rounded-lg border border-gray-200 p-4 flex flex-col flex-1 min-h-0">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <div class="section-kicker">Conversation</div>
+          <h2 class="panel-title">对话</h2>
+        </div>
+        <div class="metric-chip text-xs text-gray-600">
+          消息数: <span class="font-mono" x-text="history.length + (isRunning ? 1 : 0)"></span>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-3 pr-2" x-ref="chatBox">
+        <template x-for="(m, i) in visibleMessages()" :key="i">
+          <div>
+            <template x-if="m.role === 'user'">
+              <div class="flex justify-end">
+                <div class="message-user rounded px-3 py-2 max-w-[80%] text-sm"
+                     x-text="m.content"></div>
+              </div>
+            </template>
+
+            <template x-if="m.role === 'assistant' && m.content">
+              <div class="flex justify-start">
+                <div class="message-assistant rounded px-3 py-2 max-w-[80%] text-sm whitespace-pre-wrap"
+                     x-text="m.content"></div>
+              </div>
+            </template>
+
+            <template x-if="m.role === 'assistant' && !m.content && m.tool_calls?.length">
+              <div class="flex justify-start">
+                <div class="text-[11px] text-gray-400 italic">
+                  调用工具:
+                  <template x-for="tc in m.tool_calls" :key="tc.id">
+                    <span class="font-mono" x-text="tc.function.name + '(' + tc.function.arguments + ')'"></span>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <template x-if="m.role === 'tool'">
+              <div class="flex justify-start">
+                <div class="text-[11px] text-gray-700 bg-amber-50 border-l-2 border-amber-600
+                            px-2 py-1 rounded max-w-[80%]">
+                  <span class="font-medium">工具返回:</span>
+                  <span class="font-mono" x-text="truncate(m.content, 100)"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <div x-show="isRunning" class="flex items-center gap-2 text-xs text-gray-500">
+          <div class="animate-pulse font-mono">● ● ●</div>
+          <span>Agent 正在思考...</span>
+          <span class="font-mono text-gray-400" x-show="currentStep > 0">
+            Step <span x-text="currentStep"></span> / <span x-text="maxSteps"></span>
+          </span>
+        </div>
+      </div>
+
+      <div x-show="pendingManualTool" class="mt-3 border border-cyan-300 bg-cyan-50 rounded p-3">
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div>
+            <div class="section-kicker">Human Observation</div>
+            <div class="text-sm font-semibold text-gray-900">
+              等待工具返回: <span class="font-mono" x-text="pendingManualTool?.tool"></span>
+            </div>
+          </div>
+          <button @click="discardPendingToolCall()"
+                  class="text-[11px] px-2 py-1 rounded border border-cyan-300 hover:bg-white">
+            放弃本轮
+          </button>
+        </div>
+        <div class="text-[11px] text-gray-600 mb-2">
+          模型生成的参数:
+          <pre class="console-slab rounded p-2 mt-1 overflow-x-auto" x-text="JSON.stringify(pendingManualTool?.args ?? pendingManualTool?.raw_args, null, 2)"></pre>
+        </div>
+        <textarea x-model="manualToolResult"
+                  :disabled="isRunning"
+                  class="w-full border rounded px-3 py-2 text-xs font-mono"
+                  rows="5"
+                  placeholder="在这里填写你希望模型看到的工具返回结果..."></textarea>
+        <div class="flex items-center justify-between mt-2 gap-2">
+          <div class="text-[11px] text-gray-500">这段文本会作为 role=tool 的消息写入 messages。</div>
+          <button @click="submitManualToolResult()"
+                  :disabled="isRunning || !manualToolResult.trim()"
+                  class="text-xs bg-gray-900 hover:bg-black disabled:bg-gray-300 text-stone-50 px-3 py-2 rounded font-semibold">
+            提交并继续
+          </button>
+        </div>
+      </div>
+
+      <!-- 输入框 -->
+      <div class="mt-3 flex gap-2">
+        <textarea x-model="userInput"
+                  @keydown.enter.prevent="!$event.shiftKey && send()"
+                  :disabled="isRunning || pendingManualTool"
+                  placeholder="输入你的问题... (Enter 发送, Shift+Enter 换行)"
+                  class="flex-1 border rounded-lg px-3 py-2 text-sm resize-none"
+                  rows="2"></textarea>
+        <button @click="isRunning ? cancelRun() : send()"
+                :disabled="!isRunning && (!userInput.trim() || pendingManualTool)"
+                :class="isRunning
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-gray-900 hover:bg-black disabled:bg-gray-300'"
+                class="text-white px-4 rounded-lg text-sm font-medium"
+                x-text="isRunning ? '取消' : '发送'">
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 右栏:Token 曲线 + 观察面板(垂直可拖拽) ========== -->
+  <aside id="pane-right" class="pane">
+    <div id="right-vsplit" class="v-split">
+
+      <!-- 上:Token 曲线 -->
+      <div id="right-top" class="pane">
+        <div class="bg-white rounded-lg border border-gray-200 p-4 flex-1 flex flex-col min-h-0">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <div class="section-kicker">Cost Curve</div>
+              <h2 class="panel-title text-sm">Token 消耗曲线</h2>
+            </div>
+            <div class="metric-chip text-[11px] text-gray-600">
+              累计 <span class="font-mono font-medium" x-text="totalTokens"></span> tokens
+            </div>
+          </div>
+          <p class="text-[11px] text-gray-400 mb-2">
+            单步 prompt_tokens 线性增长 → 累计成本 O(n²)
+          </p>
+          <div class="flex-1 min-h-0 relative">
+            <canvas x-ref="tokenChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下:观察面板 -->
+      <div id="right-bot" class="pane">
+        <div class="bg-white rounded-lg border border-gray-200 p-4 flex-1 overflow-hidden flex flex-col min-h-0">
+          <div class="flex items-start justify-between mb-2 gap-2">
+            <div>
+              <div class="section-kicker">Run Inspector</div>
+              <h2 class="panel-title">观察面板</h2>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <div class="flex gap-1">
+                <button @click="inspectorView = 'trace'"
+                        :class="inspectorView === 'trace' ? 'bg-gray-900 text-stone-50' : 'bg-gray-100 text-gray-600'"
+                        class="text-[11px] px-2 py-0.5 rounded">Trace</button>
+                <button @click="inspectorView = 'messages'"
+                        :class="inspectorView === 'messages' ? 'bg-gray-900 text-stone-50' : 'bg-gray-100 text-gray-600'"
+                        class="text-[11px] px-2 py-0.5 rounded">Messages</button>
+              </div>
+              <div x-show="inspectorView === 'trace'" class="flex gap-1">
+                <button @click="timelineFilter = 'all'"
+                        :class="timelineFilter === 'all' ? 'bg-stone-200 text-gray-900' : 'bg-gray-100 text-gray-600'"
+                        class="text-[10px] px-2 py-0.5 rounded">全部</button>
+                <button @click="timelineFilter = 'llm'"
+                        :class="timelineFilter === 'llm' ? 'bg-stone-200 text-gray-900' : 'bg-gray-100 text-gray-600'"
+                        class="text-[10px] px-2 py-0.5 rounded">LLM</button>
+                <button @click="timelineFilter = 'tool'"
+                        :class="timelineFilter === 'tool' ? 'bg-stone-200 text-gray-900' : 'bg-gray-100 text-gray-600'"
+                        class="text-[10px] px-2 py-0.5 rounded">Tool</button>
+              </div>
+            </div>
+          </div>
+
+          <div x-show="inspectorView === 'trace'" class="flex-1 overflow-y-auto pr-1" x-ref="timelineBox">
+            <template x-for="(ev, i) in filteredTimeline()" :key="i">
+              <div class="timeline-item py-2">
+                <div class="timeline-dot" :style="`background: ${eventColor(ev.event)}`"></div>
+
+                <div class="text-xs cursor-pointer"
+                     @click="ev._open = !ev._open">
+                  <div class="flex items-center gap-2">
+                    <span class="badge" :class="eventBadgeClass(ev.event)" x-text="ev.event"></span>
+                    <span class="text-gray-500" x-show="ev.step">
+                      Step <span x-text="ev.step"></span>
+                    </span>
+                    <span class="text-gray-500 flex-1 truncate" x-text="summarize(ev)"></span>
+                    <span class="text-gray-300" x-text="ev._open ? '▾' : '▸'"></span>
+                  </div>
+
+                  <div x-show="ev._open" class="mt-2">
+                    <pre class="console-slab rounded p-2 text-[11px] overflow-x-auto"
+                         x-text="JSON.stringify(ev.data, null, 2)"></pre>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <div x-show="timeline.length === 0" class="text-xs text-gray-400 italic">
+              发一条消息试试,这里会实时显示 agent 每一步的内部活动。
+            </div>
+          </div>
+
+          <div x-show="inspectorView === 'messages'" class="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+              <span>LLM 眼中的完整 messages</span>
+              <span><span class="font-mono" x-text="history.length"></span> 条</span>
+            </div>
+            <div class="text-xs overflow-y-auto flex-1 min-h-0">
+              <pre class="console-slab rounded p-3" x-text="JSON.stringify(history, null, 2)"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+</main>
+
+<!-- ========== 应用逻辑 ========== -->
+<script>
+// ============ Split.js:三栏水平 + 中/右栏内部上下可拖拽 ============
+window.addEventListener('DOMContentLoaded', () => {
+  if (!window.matchMedia('(min-width: 960px)').matches) return;
+
+  // 主三栏:25% / 45% / 30%,最小宽度防止被压没
+  Split(['#pane-left', '#pane-mid', '#pane-right'], {
+    sizes: [25, 45, 30],
+    minSize: [220, 340, 280],
+    gutterSize: 14,
+    snapOffset: 0,
+  });
+  // 右栏上下:token 曲线 35% + 观察面板 65%
+  Split(['#right-top', '#right-bot'], {
+    sizes: [35, 65],
+    minSize: [150, 200],
+    direction: 'vertical',
+    gutterSize: 14,
+  });
+});
+
+function agentPlayground() {
+  return {
+    // ========== 配置状态 ==========
+    backendUrl: 'http://127.0.0.1:8000',
+    backendOnline: false,
+    modelOverride: '',   // 空 = 用后端 .env 默认 endpoint
+    systemPrompt: `你是一个助手,可以使用提供的工具完成任务。
+
+工作原则:
+1. 先规划,再行动。复杂任务分步执行。
+2. 不确定环境时,先用 list_dir 之类的"探测"工具。
+3. 数字计算必须用 calculator,不要心算。
+4. 工具返回错误时,分析原因后再尝试,不要重复犯同样的错。`,
+    tools: {},
+    enabledTools: [],
+    customTools: [],
+    editingTool: false,
+    toolEditorError: '',
+    toolDraft: {
+      originalName: '',
+      name: '',
+      description: '',
+      parametersText: '',
+      response_template: '',
+    },
+    manualToolMode: false,
+    maxSteps: 10,
+
+    // ========== 运行时状态 ==========
+    userInput: '',
+    isRunning: false,
+    currentStep: 0,
+    abortController: null,
+    pendingManualTool: null,
+    manualToolResult: '',
+    pendingToolRollbackHistoryLen: null,
+    history: [],
+    timeline: [],
+    inspectorView: 'trace',
+    timelineFilter: 'all',
+    tokenChart: null,
+    tokenData: [],
+
+    // ========== 示例任务 ==========
+    examples: [
+      { label: '[简单] 时间',   text: '现在几点?' },
+      { label: '[探索] 列目录', text: 'workspace 里有什么文件?' },
+      { label: '[多步] 算均分', text: '算一下 scores.txt 里所有人的平均分' },
+      { label: '[写文件] 报告', text: '把 scores.txt 里的成绩统计(总分、平均分、最高最低分)写入 report.txt' },
+      { label: '[沙箱] 越界',   text: '读一下 /etc/passwd' },
+      { label: '[幻觉] 错路径', text: '读一下 READ 文件' },
+    ],
+
+    customToolExamples: [
+      {
+        name: 'lookup_order_status',
+        description: '查询订单状态。适用场景:用户提供订单号并询问物流、发货、签收或退款进度。不适用:没有订单号的泛泛咨询。',
+        parameters: {
+          type: 'object',
+          properties: {
+            order_id: {
+              type: 'string',
+              description: '订单号,例如 OD-2026-001',
+            },
+          },
+          required: ['order_id'],
+        },
+        response_template: '订单 {{arg.order_id}} 查询结果:\n工具: {{tool_name}}\n状态: 已发货\n预计送达: 明天 18:00 前',
+      },
+      {
+        name: 'get_refund_policy',
+        description: '检索退款政策。适用场景:用户询问退货、退款、售后规则。返回的是政策文本,不是具体订单状态。',
+        parameters: {
+          type: 'object',
+          properties: {
+            product_type: {
+              type: 'string',
+              description: '商品类型,例如 digital, clothing, appliance',
+            },
+          },
+        },
+        response_template: '退款政策 mock:\n{{args_json}}\n普通商品 7 天无理由,数字商品开通后不支持退款。',
+      },
+    ],
+
+    // ========== System Prompt 预设 ==========
+    systemPromptPresets: [
+      {
+        label: '默认',
+        prompt: `你是一个助手，可以使用提供的工具完成任务。\n\n工作原则：\n1. 先规划，再行动。复杂任务分步执行。\n2. 不确定环境时，先用 list_dir 之类的"探测"工具。\n3. 数字计算必须用 calculator，不要心算。\n4. 工具返回错误时，分析原因后再尝试，不要重复犯同样的错。`,
+      },
+      {
+        label: '谨慎型',
+        prompt: `你是一个谨慎的助手。\n\n工作原则：\n1. 每一步完成后向用户解释你做了什么再继续。\n2. 执行任何写入操作前，先告知用户将要写入的内容。\n3. 遇到不确定的情况，选择保守方案。\n4. 对每个工具调用的结果都做详细解释。`,
+      },
+      {
+        label: '高效型',
+        prompt: `你是一个高效的自动化助手。\n\n工作原则：\n1. 直接行动，减少解释，结果简洁。\n2. 遇到错误立即尝试替代方案，不要中断流程。\n3. 只报告关键信息，省略过程细节。`,
+      },
+    ],
+
+    async init() {
+      // 从 localStorage 恢复上次填的 endpoint / backend url(不会存 key)
+      const savedBackend = localStorage.getItem('agent_pg_backend');
+      const savedModel   = localStorage.getItem('agent_pg_model');
+      const savedTools   = localStorage.getItem('agent_pg_custom_tools');
+      const savedManual  = localStorage.getItem('agent_pg_manual_tool_mode');
+      if (savedBackend) this.backendUrl = savedBackend;
+      if (savedModel)   this.modelOverride = savedModel;
+      if (savedManual)  this.manualToolMode = savedManual === 'true';
+      if (savedTools) {
+        try { this.customTools = JSON.parse(savedTools); } catch(e) { this.customTools = []; }
+      }
+
+      // 恢复上次会话（timeline 只展开最后一条，避免全部撑开）
+      try {
+        const h  = localStorage.getItem('agent_pg_history');
+        const tl = localStorage.getItem('agent_pg_timeline');
+        const td = localStorage.getItem('agent_pg_tokendata');
+        if (h)  this.history   = JSON.parse(h);
+        if (tl) this.timeline  = JSON.parse(tl).map((e, i, a) => ({ ...e, _open: i === a.length - 1 }));
+        if (td) this.tokenData = JSON.parse(td);
+      } catch (e) { /* 数据损坏时静默忽略 */ }
+
+      // 持久化 config
+      this.$watch('backendUrl',    v => localStorage.setItem('agent_pg_backend', v));
+      this.$watch('modelOverride', v => localStorage.setItem('agent_pg_model', v));
+      this.$watch('manualToolMode', v => localStorage.setItem('agent_pg_manual_tool_mode', String(v)));
+      this.$watch('customTools', v => {
+        try { localStorage.setItem('agent_pg_custom_tools', JSON.stringify(v)); } catch(e){}
+      });
+      // 持久化会话
+      this.$watch('history',   v => { try { localStorage.setItem('agent_pg_history',   JSON.stringify(v)); } catch(e){} });
+      this.$watch('timeline',  v => { try { localStorage.setItem('agent_pg_timeline',  JSON.stringify(v)); } catch(e){} });
+      this.$watch('tokenData', v => { try { localStorage.setItem('agent_pg_tokendata', JSON.stringify(v)); } catch(e){} });
+
+      await this.checkHealth();
+      await this.loadTools();
+      this.initChart();
+      if (this.tokenData.length) this.updateChart();
+      setInterval(() => this.checkHealth(), 10000);
+    },
+
+    async checkHealth() {
+      try {
+        const r = await fetch(this.backendUrl + '/api/health', { signal: AbortSignal.timeout(2000) });
+        this.backendOnline = r.ok;
+      } catch { this.backendOnline = false; }
+    },
+
+    async loadTools() {
+      try {
+        const r = await fetch(this.backendUrl + '/api/tools');
+        this.tools = await r.json();
+        this.enabledTools = this.allTools().map(t => t.name);
+      } catch (e) {
+        console.warn('加载工具失败:', e);
+      }
+    },
+
+    allTools() {
+      const builtIns = Object.entries(this.tools).map(([name, t]) => ({
+        name,
+        description: t.description,
+        parameters: t.parameters || { type: 'object', properties: {} },
+        source: 'built_in',
+      }));
+      const builtInNames = new Set(builtIns.map(t => t.name));
+      const custom = this.customTools
+        .filter(t => t && t.name && !builtInNames.has(t.name))
+        .map(t => ({ ...t, source: 'custom' }));
+      return [...builtIns, ...custom];
+    },
+
+    emptyToolDraft() {
+      return {
+        originalName: '',
+        name: 'my_custom_tool',
+        description: '说明这个工具什么时候该被模型调用,什么时候不该调用。',
+        parametersText: JSON.stringify({
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: '用户要查询的内容',
+            },
+          },
+          required: ['query'],
+        }, null, 2),
+        response_template: 'Mock 工具 {{tool_name}} 已收到参数:\n{{args_json}}',
+      };
+    },
+
+    startNewTool() {
+      this.toolEditorError = '';
+      this.toolDraft = this.emptyToolDraft();
+      this.editingTool = true;
+    },
+
+    editTool(tool) {
+      this.toolEditorError = '';
+      this.toolDraft = {
+        originalName: tool.name,
+        name: tool.name,
+        description: tool.description || '',
+        parametersText: JSON.stringify(tool.parameters || { type: 'object', properties: {} }, null, 2),
+        response_template: tool.response_template || '',
+      };
+      this.editingTool = true;
+    },
+
+    duplicateTool(tool) {
+      this.toolEditorError = '';
+      const baseName = `${tool.name}_mock`.replace(/[^A-Za-z0-9_]/g, '_').slice(0, 64);
+      this.toolDraft = {
+        originalName: '',
+        name: this.uniqueToolName(baseName),
+        description: tool.description || '',
+        parametersText: JSON.stringify(tool.parameters || { type: 'object', properties: {} }, null, 2),
+        response_template: `Mock 工具 {{tool_name}} 已收到参数:\n{{args_json}}`,
+      };
+      this.editingTool = true;
+    },
+
+    closeToolEditor() {
+      this.editingTool = false;
+      this.toolEditorError = '';
+    },
+
+    saveToolDraft() {
+      const name = this.toolDraft.name.trim();
+      const originalName = this.toolDraft.originalName;
+      if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(name)) {
+        this.toolEditorError = 'Name 只能使用字母、数字、下划线,且不能以数字开头。';
+        return;
+      }
+      if (this.tools[name]) {
+        this.toolEditorError = '不能覆盖内置工具。请换一个 name,或先复制为 mock 版本。';
+        return;
+      }
+      if (!this.toolDraft.description.trim()) {
+        this.toolEditorError = 'Description 不能为空,这是模型判断是否调用工具的关键。';
+        return;
+      }
+
+      let parameters;
+      try {
+        parameters = JSON.parse(this.toolDraft.parametersText);
+      } catch (e) {
+        this.toolEditorError = 'Parameters JSON Schema 不是合法 JSON。';
+        return;
+      }
+      if (!parameters || parameters.type !== 'object') {
+        this.toolEditorError = 'Parameters JSON Schema 顶层 type 必须是 object。';
+        return;
+      }
+
+      const duplicate = this.customTools.some(t => t.name === name && t.name !== originalName);
+      if (duplicate) {
+        this.toolEditorError = '已经存在同名自定义工具。';
+        return;
+      }
+
+      const saved = {
+        name,
+        description: this.toolDraft.description.trim(),
+        parameters,
+        response_template: this.toolDraft.response_template,
+      };
+      if (originalName) {
+        this.customTools = this.customTools.map(t => t.name === originalName ? saved : t);
+        this.enabledTools = this.enabledTools.map(n => n === originalName ? name : n);
+      } else {
+        this.customTools = [...this.customTools, saved];
+        if (!this.enabledTools.includes(name)) this.enabledTools.push(name);
+      }
+      this.closeToolEditor();
+    },
+
+    deleteCustomTool(name) {
+      this.customTools = this.customTools.filter(t => t.name !== name);
+      this.enabledTools = this.enabledTools.filter(n => n !== name);
+      if (this.toolDraft.originalName === name) this.closeToolEditor();
+    },
+
+    resetCustomTools() {
+      this.customTools = [];
+      this.enabledTools = this.enabledTools.filter(n => this.tools[n]);
+      this.closeToolEditor();
+    },
+
+    addToolExamples() {
+      const next = [...this.customTools];
+      for (const tool of this.customToolExamples) {
+        if (!next.some(t => t.name === tool.name) && !this.tools[tool.name]) {
+          next.push(tool);
+          if (!this.enabledTools.includes(tool.name)) this.enabledTools.push(tool.name);
+        }
+      }
+      this.customTools = next;
+    },
+
+    uniqueToolName(baseName) {
+      let name = baseName || 'custom_tool';
+      let i = 2;
+      while (this.tools[name] || this.customTools.some(t => t.name === name)) {
+        const suffix = `_${i}`;
+        name = `${baseName.slice(0, 64 - suffix.length)}${suffix}`;
+        i += 1;
+      }
+      return name;
+    },
+
+    initChart() {
+      const ctx = this.$refs.tokenChart.getContext('2d');
+      this.tokenChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'prompt', data: [], borderColor: '#175cff',
+              backgroundColor: 'rgba(23,92,255,.12)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5 },
+            { label: 'completion', data: [], borderColor: '#23c55e',
+              backgroundColor: 'rgba(35,197,94,.13)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { boxWidth: 10, color: '#687269', font: { family: 'IBM Plex Mono', size: 10 } }
+            },
+            tooltip: {
+              backgroundColor: '#171a17',
+              titleColor: '#fff8e8',
+              bodyColor: '#e8f2df',
+              borderColor: '#d9d1bf',
+              borderWidth: 1,
+              displayColors: true,
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              border: { color: '#d9d1bf' },
+              grid: { color: 'rgba(22,25,22,.08)' },
+              ticks: { color: '#687269', font: { family: 'IBM Plex Mono', size: 10 } },
+            },
+            x: {
+              border: { color: '#d9d1bf' },
+              grid: { color: 'rgba(22,25,22,.05)' },
+              ticks: { color: '#687269', font: { family: 'IBM Plex Mono', size: 10 } },
+            },
+          }
+        }
+      });
+    },
+
+    updateChart() {
+      this.tokenChart.data.labels = this.tokenData.map(d => 'Step ' + d.step);
+      this.tokenChart.data.datasets[0].data = this.tokenData.map(d => d.prompt);
+      this.tokenChart.data.datasets[1].data = this.tokenData.map(d => d.completion);
+      this.tokenChart.update();
+    },
+
+    get totalTokens() {
+      return this.tokenData.reduce((s, d) => s + d.prompt + d.completion, 0);
+    },
+
+    async consumeEventStream(resp) {
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const frames = buffer.split(/\r?\n\r?\n/);
+        buffer = frames.pop();
+
+        for (const frame of frames) {
+          if (!frame.trim()) continue;
+          const lines = frame.split(/\r?\n/);
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              try {
+                const payload = JSON.parse(line.slice(5).trim());
+                this.handleEvent(payload);
+              } catch (e) {
+                console.warn('SSE parse error:', e, line);
+              }
+            }
+          }
+        }
+      }
+    },
+
+    async send() {
+      const input = this.userInput.trim();
+      if (!input || this.isRunning || this.pendingManualTool) return;
+
+      const preRunHistoryLen = this.history.length;
+      this.isRunning = true;
+      this.currentStep = 0;
+      this.userInput = '';
+      this.pendingManualTool = null;
+      this.manualToolResult = '';
+      this.pendingToolRollbackHistoryLen = preRunHistoryLen;
+      this.abortController = new AbortController();
+
+      const req = {
+        user_input: input,
+        system_prompt: this.systemPrompt,
+        enabled_tools: this.enabledTools,
+        custom_tools: this.customTools,
+        manual_tool_mode: this.manualToolMode,
+        max_steps: this.maxSteps,
+        history: this.history,
+        model_override: this.modelOverride.trim() || null,
+      };
+
+      try {
+        const resp = await fetch(this.backendUrl + '/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req),
+          signal: this.abortController.signal,
+        });
+
+        await this.consumeEventStream(resp);
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          // 取消运行：回滚 history 到本轮发送前的状态，避免残留半截工具调用
+          this.history = this.history.slice(0, preRunHistoryLen);
+          this.pendingManualTool = null;
+          this.manualToolResult = '';
+          this.pendingToolRollbackHistoryLen = null;
+        } else {
+          this.timeline.push({ event: 'error', data: { error: String(e) }, _open: true });
+        }
+      } finally {
+        this.isRunning = false;
+        this.abortController = null;
+        this.scrollChatBottom();
+      }
+    },
+
+    async submitManualToolResult() {
+      if (!this.pendingManualTool || this.isRunning || !this.manualToolResult.trim()) return;
+
+      this.isRunning = true;
+      this.abortController = new AbortController();
+      const toolCall = this.pendingManualTool;
+      const result = this.manualToolResult;
+      const preContinueHistoryLen = this.history.length;
+      this.pendingManualTool = null;
+      this.manualToolResult = '';
+
+      const req = {
+        tool_call_id: toolCall.tool_call_id,
+        tool_result: result,
+        enabled_tools: this.enabledTools,
+        custom_tools: this.customTools,
+        manual_tool_mode: this.manualToolMode,
+        max_steps: this.maxSteps,
+        history: this.history,
+        model_override: this.modelOverride.trim() || null,
+      };
+
+      try {
+        const resp = await fetch(this.backendUrl + '/api/continue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req),
+          signal: this.abortController.signal,
+        });
+        await this.consumeEventStream(resp);
+      } catch (e) {
+        this.history = this.history.slice(0, preContinueHistoryLen);
+        this.pendingManualTool = toolCall;
+        this.manualToolResult = result;
+        if (e.name !== 'AbortError') {
+          this.timeline.push({ event: 'error', data: { error: String(e) }, _open: true });
+        }
+      } finally {
+        this.isRunning = false;
+        this.abortController = null;
+        this.scrollChatBottom();
+      }
+    },
+
+    discardPendingToolCall() {
+      if (this.pendingToolRollbackHistoryLen !== null) {
+        this.history = this.history.slice(0, this.pendingToolRollbackHistoryLen);
+      }
+      this.pendingManualTool = null;
+      this.manualToolResult = '';
+      this.pendingToolRollbackHistoryLen = null;
+    },
+
+    handleEvent(payload) {
+      const ev = { ...payload, _open: true };
+      this.timeline.push(ev);
+      if (payload.step) this.currentStep = payload.step;
+
+      if (payload.event === 'user_input') {
+        this.history = payload.data.messages_snapshot || this.history;
+      } else if (payload.event === 'llm_response') {
+        if (payload.data.usage) {
+          this.tokenData.push({
+            step: payload.step,
+            prompt: payload.data.usage.prompt_tokens || 0,
+            completion: payload.data.usage.completion_tokens || 0,
+            estimated: Boolean(payload.data.usage.estimated),
+          });
+          this.updateChart();
+        }
+        const msg = {
+          role: 'assistant',
+          content: payload.data.content || null,
+        };
+        if (payload.data.tool_calls?.length) {
+          msg.tool_calls = payload.data.tool_calls;
+        }
+        this.history.push(msg);
+      } else if (payload.event === 'tool_input_required') {
+        if (payload.data.messages_snapshot) {
+          this.history = payload.data.messages_snapshot;
+        }
+        this.pendingManualTool = payload.data;
+        this.manualToolResult = this.suggestManualToolResult(payload.data);
+        this.inspectorView = 'trace';
+      } else if (payload.event === 'tool_result') {
+        if (payload.data.messages_snapshot) {
+          this.history = payload.data.messages_snapshot;
+        } else {
+          this.history.push({
+            role: 'tool',
+            tool_call_id: payload.data.tool_call_id,
+            content: payload.data.result,
+          });
+        }
+      } else if (payload.event === 'final_answer' || payload.event === 'max_steps') {
+        if (payload.data.messages_snapshot) {
+          this.history = payload.data.messages_snapshot;
+        }
+        this.pendingToolRollbackHistoryLen = null;
+      }
+
+      this.scrollChatBottom();
+      this.scrollTimelineBottom();
+    },
+
+    suggestManualToolResult(toolCall) {
+      const args = toolCall?.args ?? toolCall?.raw_args ?? {};
+      return [
+        `[人工工具返回] ${toolCall?.tool || 'tool'}`,
+        `参数: ${typeof args === 'string' ? args : JSON.stringify(args, null, 2)}`,
+        '结果: ',
+      ].join('\n');
+    },
+
+    resetSession() {
+      this.history = [];
+      this.timeline = [];
+      this.tokenData = [];
+      this.currentStep = 0;
+      this.pendingManualTool = null;
+      this.manualToolResult = '';
+      this.pendingToolRollbackHistoryLen = null;
+      this.updateChart();
+      localStorage.removeItem('agent_pg_history');
+      localStorage.removeItem('agent_pg_timeline');
+      localStorage.removeItem('agent_pg_tokendata');
+    },
+
+    cancelRun() {
+      if (this.abortController) this.abortController.abort();
+    },
+
+    visibleMessages() {
+      return this.history.filter(m => m.role !== 'system');
+    },
+
+    truncate(s, n) {
+      if (!s) return '';
+      return s.length > n ? s.slice(0, n) + '...' : s;
+    },
+
+    scrollChatBottom() {
+      this.$nextTick(() => {
+        const box = this.$refs.chatBox;
+        if (box) box.scrollTop = box.scrollHeight;
+      });
+    },
+    scrollTimelineBottom() {
+      this.$nextTick(() => {
+        const box = this.$refs.timelineBox;
+        if (box) box.scrollTop = box.scrollHeight;
+      });
+    },
+
+    eventColor(ev) {
+      return ({
+        user_input:    '#3b82f6',
+        llm_response:  '#7c3aed',
+        tool_call:     '#d97706',
+        tool_input_required: '#0891b2',
+        tool_result:   '#23c55e',
+        final_answer:  '#0891b2',
+        error:         '#dc2626',
+        max_steps:     '#991b1b',
+      })[ev] || '#9ca3af';
+    },
+    eventBadgeClass(ev) {
+      return ({
+        user_input:    'bg-blue-100 text-blue-700',
+        llm_response:  'bg-purple-100 text-purple-700',
+        tool_call:     'bg-amber-100 text-amber-700',
+        tool_input_required: 'bg-cyan-100 text-cyan-700',
+        tool_result:   'bg-green-100 text-green-700',
+        final_answer:  'bg-cyan-100 text-cyan-700',
+        error:         'bg-red-100 text-red-700',
+        max_steps:     'bg-red-200 text-red-800',
+      })[ev] || 'bg-gray-100 text-gray-600';
+    },
+
+    summarize(ev) {
+      const d = ev.data || {};
+      switch (ev.event) {
+        case 'user_input':   return d.content;
+        case 'llm_response':
+          if (d.tool_calls?.length)
+            return 'TOOL ' + d.tool_calls.map(tc => tc.function.name).join(', ') +
+                   ` · ${this.usageLabel(d.usage)} · ${d.latency_s}s`;
+          return this.truncate(d.content || '(无内容)', 80) +
+                 ` · ${this.usageLabel(d.usage)}`;
+        case 'tool_call':    return `${d.tool}(${JSON.stringify(d.args || {})})`;
+        case 'tool_input_required': return `等待人工返回 ${d.tool}(${JSON.stringify(d.args || {})})`;
+        case 'tool_result':  return `${d.tool} → ${this.truncate(d.result, 60)}`;
+        case 'final_answer': return this.truncate(d.content, 80);
+        case 'error':        return d.error;
+        case 'max_steps':    return d.hint;
+        default:             return '';
+      }
+    },
+
+    filteredTimeline() {
+      if (this.timelineFilter === 'all') return this.timeline;
+      if (this.timelineFilter === 'llm')
+        return this.timeline.filter(e => ['llm_response', 'final_answer'].includes(e.event));
+      if (this.timelineFilter === 'tool')
+        return this.timeline.filter(e => ['tool_call', 'tool_input_required', 'tool_result'].includes(e.event));
+      return this.timeline;
+    },
+
+    usageLabel(usage) {
+      if (!usage) return '? tok';
+      return `${usage.estimated ? '~' : ''}${usage.total_tokens || '?'} tok`;
+    },
+  };
+}
+</script>
+
+</body>
+</html>

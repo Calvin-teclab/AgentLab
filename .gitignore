@@ -1,0 +1,40 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+.Python
+
+# ===== 环境变量(绝对不能提交!) =====
+.env
+.env.local
+.env.*.local
+
+# ===== Agent trace 日志 =====
+trace_*.jsonl
+*.log
+
+# ===== Agent 运行产物 =====
+# 保留示例文件,排除其他运行产物
+backend/workspace/*
+!backend/workspace/.gitkeep
+!backend/workspace/README.md
+!backend/workspace/scores.txt
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# ===== Claude Code 本地配置 =====
+.claude/settings.local.json
+
+# ===== Node(未来若前端升级到构建版) =====
+node_modules/
+dist/
+build/
