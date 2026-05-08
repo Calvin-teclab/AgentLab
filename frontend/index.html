@@ -36,49 +36,34 @@
   body {
     font-family: "Instrument Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
     color: var(--ink);
-    background:
-      radial-gradient(circle at 14% 18%, rgba(35, 197, 94, .12), transparent 24%),
-      linear-gradient(90deg, rgba(22,25,22,.045) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(22,25,22,.045) 1px, transparent 1px),
-      var(--paper);
-    background-size: auto, 28px 28px, 28px 28px, auto;
-  }
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image: linear-gradient(rgba(255,255,255,.24) 1px, transparent 1px);
-    background-size: 100% 4px;
-    mix-blend-mode: soft-light;
-    opacity: .4;
+    background: var(--paper);
   }
   pre, code, .font-mono {
     font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
   }
   pre { font-size: 12px; line-height: 1.55; }
   .app-topbar {
-    background: rgba(255, 253, 246, .86);
+    background: rgba(255, 253, 246, .92);
     backdrop-filter: blur(18px);
-    border-bottom: 1px solid var(--line-strong);
-    box-shadow: 0 1px 0 rgba(255,255,255,.7) inset;
+    border-bottom: 1px solid var(--line);
   }
   .brand-mark {
-    width: 38px;
-    height: 38px;
+    width: 34px;
+    height: 34px;
     display: grid;
     place-items: center;
-    border: 1px solid var(--line-strong);
+    border-radius: 8px;
     background: var(--ink);
     color: var(--paper);
-    font-weight: 800;
+    font-weight: 700;
+    font-size: 13px;
     letter-spacing: 0;
   }
   .app-title {
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: 0;
-    line-height: 1;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
   }
   .app-subtitle {
     color: var(--muted);
@@ -87,23 +72,23 @@
     text-transform: uppercase;
   }
   .safety-strip {
-    background: #241f17;
+    background: rgba(36, 31, 23, 0.92);
     color: #f5eddc;
-    border-bottom: 1px solid #090a08;
+    border-bottom: 1px solid rgba(0,0,0,.15);
   }
   .safety-strip code {
-    background: rgba(245, 237, 220, .12);
+    background: rgba(245, 237, 220, .14);
     color: #fff8e8;
-    border: 1px solid rgba(245, 237, 220, .2);
+    border-radius: 3px;
+    padding: 1px 5px;
   }
   #main-split {
     gap: 0;
   }
   main .bg-white {
-    background: var(--panel);
+    background: var(--panel-strong);
     border-color: var(--line);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(16px);
+    box-shadow: 0 1px 2px rgba(38, 33, 22, .04), 0 8px 24px rgba(38, 33, 22, .06);
   }
   .panel-title {
     color: var(--ink);
@@ -127,13 +112,16 @@
     box-shadow: 0 10px 22px rgba(38, 33, 22, .08);
   }
   .badge {
-    padding: 3px 9px;
-    border-radius: 2px;
+    padding: 2px 8px;
+    border-radius: 999px;
     font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .05em;
+    font-weight: 600;
+    letter-spacing: .03em;
     text-transform: uppercase;
     border: 1px solid currentColor;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.4;
   }
   input[type="text"], textarea {
     background: rgba(255, 253, 246, .82);
@@ -252,16 +240,311 @@
     padding: 7px 8px;
   }
   .pulse-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 999px;
     display: inline-block;
     background: var(--signal);
-    box-shadow: 0 0 0 5px rgba(35, 197, 94, .12);
+    box-shadow: 0 0 0 4px rgba(35, 197, 94, .14);
   }
   .pulse-dot.off {
     background: var(--red);
-    box-shadow: 0 0 0 5px rgba(220, 38, 38, .12);
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, .14);
+  }
+
+  /* ===== Mode Toggle (Lesson / Free) ===== */
+  .mode-toggle {
+    display: inline-flex;
+    background: rgba(22, 25, 22, .06);
+    border-radius: 999px;
+    padding: 3px;
+    border: 1px solid var(--line);
+  }
+  .mode-toggle button {
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--muted);
+    border-radius: 999px;
+    transition: background .15s, color .15s, box-shadow .15s;
+  }
+  .mode-toggle button.active {
+    background: var(--ink);
+    color: var(--paper);
+    box-shadow: 0 1px 2px rgba(0,0,0,.18);
+  }
+  .mode-toggle button:not(.active):hover {
+    color: var(--ink);
+  }
+
+  /* ===== Lesson Selector Pill ===== */
+  .lesson-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel-strong);
+    font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .lesson-pill:hover {
+    border-color: var(--ink);
+  }
+  .lesson-pill .order-num {
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--cobalt);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  /* ===== Lesson Card ===== */
+  .lesson-card {
+    position: relative;
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px 22px 22px 26px;
+    box-shadow: 0 1px 2px rgba(38, 33, 22, .04), 0 8px 24px rgba(38, 33, 22, .06);
+  }
+  .lesson-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 18px;
+    bottom: 18px;
+    width: 3px;
+    background: var(--cobalt);
+    border-radius: 0 2px 2px 0;
+  }
+  .lesson-card-header {
+    margin-bottom: 14px;
+  }
+  .lesson-card-eyebrow {
+    color: var(--cobalt);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .lesson-card-title {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .lesson-card-subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 3px;
+  }
+  .lesson-intro {
+    color: var(--ink);
+    font-size: 13.5px;
+    line-height: 1.55;
+    margin-bottom: 18px;
+  }
+  .lesson-intro strong {
+    color: var(--cobalt);
+    font-weight: 700;
+  }
+
+  /* Step list */
+  .step-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+  .step-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: rgba(255, 253, 246, .55);
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .step-item.current {
+    border-color: var(--cobalt);
+    background: rgba(23, 92, 255, .04);
+    box-shadow: 0 0 0 3px rgba(23, 92, 255, .08);
+  }
+  .step-item.done {
+    background: rgba(35, 197, 94, .05);
+    border-color: rgba(35, 197, 94, .35);
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .step-item.done .step-num {
+    background: var(--signal);
+  }
+  .step-item:not(.current):not(.done) .step-num {
+    background: rgba(22, 25, 22, .14);
+    color: var(--ink);
+  }
+  .step-instruction {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .step-instruction strong {
+    background: rgba(23, 92, 255, .1);
+    color: var(--cobalt);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .step-hint {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  /* Aha banner */
+  .aha-banner {
+    background: linear-gradient(180deg, rgba(35, 197, 94, .08), rgba(35, 197, 94, .02));
+    border: 1px solid rgba(35, 197, 94, .35);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .aha-banner-eyebrow {
+    color: var(--signal);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .aha-banner-text {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+
+  /* CTA button (next lesson / done) */
+  .lesson-cta {
+    width: 100%;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background .15s, transform .15s;
+  }
+  .lesson-cta:hover {
+    background: #000;
+  }
+  .lesson-cta.signal {
+    background: var(--signal);
+  }
+  .lesson-cta.signal:hover {
+    background: #1ea84e;
+  }
+
+  /* Lesson preset summary */
+  .lesson-setup {
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: rgba(22, 25, 22, .02);
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 14px;
+  }
+  .lesson-setup-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 2px 0;
+  }
+  .lesson-setup-row code {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* "Why" expandable explainer */
+  .lesson-explain-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: color .15s;
+  }
+  .lesson-explain-toggle:hover {
+    color: var(--ink);
+  }
+  .lesson-explain-body {
+    background: rgba(22, 25, 22, .03);
+    border-left: 2px solid var(--cobalt);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--ink);
+  }
+  .lesson-explain-body h2 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .lesson-explain-body p { margin-bottom: 10px; }
+  .lesson-explain-body ol { padding-left: 20px; margin: 8px 0; }
+  .lesson-explain-body ol li { margin-bottom: 4px; }
+  .lesson-explain-body code {
+    background: rgba(22, 25, 22, .06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  .lesson-explain-body em {
+    color: var(--muted);
+    font-style: normal;
+    border-left: 2px solid var(--line);
+    padding-left: 10px;
+    display: block;
+    margin-top: 10px;
+  }
+
+  /* Compact icon button (e.g. clear in chat header) */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    color: var(--muted);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: transparent;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .icon-btn:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: rgba(22, 25, 22, .04);
   }
 
   @media (max-width: 959px) {
@@ -296,30 +579,67 @@
 
 <!-- ========== 顶部栏 ========== -->
 <header class="app-topbar px-6 py-3 flex items-center justify-between flex-wrap gap-3">
-  <div class="flex items-center gap-3">
-    <div class="brand-mark">AP</div>
-    <div>
-      <div class="app-title">Agent Playground</div>
-      <div class="app-subtitle">Trace Lab / Token Observatory</div>
+  <div class="flex items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="brand-mark">AP</div>
+      <div>
+        <div class="app-title">Agent Playground</div>
+        <div class="app-subtitle" x-text="mode === 'lesson' ? '课程模式 · 看见 agent 的每一步' : '自由模式 · trace lab'"></div>
+      </div>
+    </div>
+
+    <!-- 模式切换 -->
+    <div class="mode-toggle ml-2" role="tablist">
+      <button :class="mode === 'lesson' ? 'active' : ''" @click="setMode('lesson')">课程</button>
+      <button :class="mode === 'free' ? 'active' : ''" @click="setMode('free')">自由</button>
+    </div>
+
+    <!-- 关卡选择(仅 lesson mode) -->
+    <div x-show="mode === 'lesson' && lessons.length > 0" class="relative" @click.outside="lessonMenuOpen = false">
+      <button class="lesson-pill" @click="lessonMenuOpen = !lessonMenuOpen">
+        <span class="order-num" x-text="currentLesson?.order ?? '·'"></span>
+        <span x-text="currentLesson?.title ?? '选择一关'"></span>
+        <span class="text-gray-400" x-text="lessonMenuOpen ? '▴' : '▾'"></span>
+      </button>
+      <div x-show="lessonMenuOpen" x-transition.opacity
+           class="absolute left-0 mt-2 w-72 bg-white border border-stone-200 rounded-lg shadow-lg overflow-hidden z-50">
+        <template x-for="l in lessons" :key="l.id">
+          <button @click="enterLesson(l.id); lessonMenuOpen = false"
+                  class="block w-full text-left px-4 py-3 hover:bg-stone-50 border-b border-stone-100 last:border-b-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="order-num" style="background: var(--cobalt); color: white;
+                    display: inline-grid; place-items: center; width: 20px; height: 20px;
+                    border-radius: 999px; font-size: 10px; font-weight: 700;"
+                    x-text="l.order"></span>
+              <span class="font-semibold text-sm" x-text="l.title"></span>
+              <span x-show="completedLessons.includes(l.id)" class="text-green-600 text-xs">✓</span>
+            </div>
+            <div class="text-xs text-gray-500 ml-7" x-text="l.subtitle"></div>
+          </button>
+        </template>
+      </div>
     </div>
   </div>
-  <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
-    <!-- 后端地址 -->
-    <label class="section-kicker">后端</label>
-    <input type="text" x-model="backendUrl"
-           class="border rounded px-2 py-1 w-52 text-xs font-mono"
-           placeholder="http://127.0.0.1:8000" />
 
-    <!-- Endpoint 覆盖(API Key 永远只在后端.env) -->
-    <label class="section-kicker ml-2" title="覆盖后端 .env 中的 ARK_MODEL,留空则用默认。API Key 永远在后端,前端无法修改。">
-      Endpoint
-    </label>
-    <input type="text" x-model="modelOverride"
-           class="border rounded px-2 py-1 w-40 text-xs font-mono"
-           placeholder="ep-xxxxxx (留空=默认)" />
+  <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
+    <!-- 高级配置(后端地址 / endpoint),仅 free mode 完整可见 -->
+    <details class="text-xs" x-show="mode === 'free'">
+      <summary class="cursor-pointer text-gray-500 hover:text-gray-900 select-none">⚙ 后端配置</summary>
+      <div class="absolute right-6 mt-2 bg-white border border-stone-200 rounded-lg shadow-lg p-3 z-50 w-80">
+        <label class="section-kicker block mb-1">后端 URL</label>
+        <input type="text" x-model="backendUrl"
+               class="w-full border rounded px-2 py-1 text-xs font-mono mb-2"
+               placeholder="http://127.0.0.1:8000" />
+        <label class="section-kicker block mb-1" title="覆盖后端 .env 中的 ARK_MODEL,留空则用默认">Endpoint 覆盖</label>
+        <input type="text" x-model="modelOverride"
+               class="w-full border rounded px-2 py-1 text-xs font-mono"
+               placeholder="ep-xxxxxx (留空=默认)" />
+        <p class="text-[10px] text-gray-400 mt-2">API Key 永远只在后端 .env</p>
+      </div>
+    </details>
 
     <span class="badge"
-          :class="backendOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+          :class="backendOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
       <span class="pulse-dot mr-2 align-middle" :class="backendOnline ? '' : 'off'"></span>
       <span x-text="backendOnline ? '已连接' : '未连接'"></span>
     </span>
@@ -335,9 +655,98 @@
 <!-- ========== 三栏水平布局(可拖拽) ========== -->
 <main id="main-split" class="split" style="height: calc(100vh - 92px); padding: 12px;">
 
-  <!-- ========== 左栏:配置面板 ========== -->
+  <!-- ========== 左栏 ========== -->
   <aside id="pane-left" class="pane">
-    <div class="bg-white rounded-lg border border-gray-200 p-4 flex-1 overflow-y-auto">
+
+    <!-- 课程模式: Lesson Card -->
+    <div x-show="mode === 'lesson'" class="bg-white rounded-lg border border-gray-200 p-5 flex-1 overflow-y-auto">
+      <template x-if="currentLesson">
+        <div>
+          <div class="lesson-card">
+            <div class="lesson-card-header">
+              <div class="lesson-card-eyebrow">
+                Lesson <span x-text="currentLesson.order"></span> · 约 <span x-text="currentLesson.estimated_minutes"></span> 分钟
+              </div>
+              <div class="lesson-card-title" x-text="currentLesson.title"></div>
+              <div class="lesson-card-subtitle" x-text="currentLesson.subtitle"></div>
+            </div>
+
+            <div class="lesson-intro" x-html="currentLesson.task_intro.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')"></div>
+
+            <ol class="step-list">
+              <template x-for="(step, i) in currentLesson.task_steps" :key="i">
+                <li class="step-item"
+                    :class="{ 'current': isLessonStepCurrent(i), 'done': isLessonStepDone(i) }">
+                  <div class="step-num" x-text="isLessonStepDone(i) ? '✓' : (i + 1)"></div>
+                  <div>
+                    <div class="step-instruction"
+                         x-html="step.instruction.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')"></div>
+                    <div class="step-hint" x-show="step.hint && (isLessonStepCurrent(i) || isLessonStepDone(i))"
+                         x-text="step.hint"></div>
+                  </div>
+                </li>
+              </template>
+            </ol>
+
+            <!-- Aha 卡 + 解读：仅在用户点完最后一步的"我看到了"后展开 -->
+            <template x-if="lessonComplete">
+              <div>
+                <div class="aha-banner">
+                  <div class="aha-banner-eyebrow">💡 你刚刚看见了</div>
+                  <div class="aha-banner-text" x-text="currentLesson.aha"></div>
+                </div>
+
+                <button class="lesson-explain-toggle"
+                        @click="showLessonExplanation = !showLessonExplanation">
+                  <span x-text="showLessonExplanation ? '▾ 收起为什么' : '▸ 为什么会这样'"></span>
+                </button>
+                <div class="lesson-explain-body" x-show="showLessonExplanation" x-transition>
+                  <div x-html="renderMarkdown(currentLesson.explanation_md)"></div>
+                </div>
+              </div>
+            </template>
+
+            <button class="lesson-cta"
+                    :class="{ 'signal': lessonComplete }"
+                    @click="!lessonComplete
+                            ? (lessonStepIdx < (currentLesson.task_steps?.length || 0) - 1 ? nextLessonStep() : finishLesson())
+                            : goToNextLesson()">
+              <span x-show="!lessonComplete && lessonStepIdx < (currentLesson.task_steps?.length || 0) - 1">我看到了 · 下一步 →</span>
+              <span x-show="!lessonComplete && lessonStepIdx >= (currentLesson.task_steps?.length || 0) - 1">✓ 完成 · 看为什么</span>
+              <span x-show="lessonComplete" x-text="currentLesson.next_hint || '进入下一关 →'"></span>
+            </button>
+          </div>
+
+          <!-- 锁定的预设(只读展示) -->
+          <details class="lesson-setup">
+            <summary style="cursor: pointer; font-size: 11px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; font-weight: 700;">
+              本关预设 · 点开查看
+            </summary>
+            <div class="lesson-setup-row" style="margin-top: 10px;">
+              <span>System Prompt</span>
+              <code x-text="truncate(systemPrompt, 50)"></code>
+            </div>
+            <div class="lesson-setup-row">
+              <span>启用工具</span>
+              <code x-text="enabledTools.length ? enabledTools.join(', ') : '（无）'"></code>
+            </div>
+            <div class="lesson-setup-row">
+              <span>Max Steps</span>
+              <code x-text="maxSteps"></code>
+            </div>
+          </details>
+        </div>
+      </template>
+
+      <template x-if="!currentLesson">
+        <div class="text-center text-gray-400 text-sm py-8">
+          正在加载关卡...
+        </div>
+      </template>
+    </div>
+
+    <!-- 自由模式: 配置面板 -->
+    <div x-show="mode === 'free'" class="bg-white rounded-lg border border-gray-200 p-4 flex-1 overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <div>
           <div class="section-kicker">Control Plane</div>
@@ -512,8 +921,17 @@
           <div class="section-kicker">Conversation</div>
           <h2 class="panel-title">对话</h2>
         </div>
-        <div class="metric-chip text-xs text-gray-600">
-          消息数: <span class="font-mono" x-text="history.length + (isRunning ? 1 : 0)"></span>
+        <div class="flex items-center gap-2">
+          <div class="metric-chip text-xs text-gray-600">
+            消息数: <span class="font-mono" x-text="history.length + (isRunning ? 1 : 0)"></span>
+          </div>
+          <button @click="resetSession()"
+                  :disabled="isRunning"
+                  class="text-[11px] px-2 py-1 rounded border border-stone-300 bg-white hover:bg-stone-100
+                         text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  title="清空当前 messages 列表，开始新一轮会话">
+            🗑 清空会话
+          </button>
         </div>
       </div>
 
@@ -770,6 +1188,16 @@ function agentPlayground() {
     manualToolMode: false,
     maxSteps: 10,
 
+    // ========== 课程模式状态 ==========
+    mode: 'lesson',                  // 'lesson' | 'free'
+    lessons: [],                     // 后端 /api/lessons 返回
+    currentLessonId: null,
+    lessonStepIdx: 0,
+    lessonMenuOpen: false,
+    completedLessons: [],
+    lessonComplete: false,           // 走完最后一步后才置 true
+    showLessonExplanation: false,
+
     // ========== 运行时状态 ==========
     userInput: '',
     isRunning: false,
@@ -880,6 +1308,32 @@ function agentPlayground() {
 
       await this.checkHealth();
       await this.loadTools();
+      await this.loadLessons();
+
+      // 恢复完成关卡列表
+      try {
+        const c = localStorage.getItem('agent_pg_completed');
+        if (c) this.completedLessons = JSON.parse(c) || [];
+      } catch (e) {}
+
+      // 决定默认模式：曾访问过的人尊重其上次选择，新访客 → 课程模式
+      const savedMode   = localStorage.getItem('agent_pg_mode');
+      const savedLesson = localStorage.getItem('agent_pg_lesson');
+      const isReturning = !!(savedMode || this.history.length || savedLesson);
+      this.mode = savedMode || (isReturning ? 'free' : 'lesson');
+
+      if (this.mode === 'lesson' && this.lessons.length) {
+        // 优先恢复上次的关卡，否则从第一关开始
+        const target = this.lessons.find(l => l.id === savedLesson) || this.lessons[0];
+        // 注意：enterLesson 会 resetSession（清掉刚刚 restore 的 history）
+        // 只有当：用户显式选了课程 + 没有进行中会话时才自动进入
+        if (!this.history.length) {
+          this.enterLesson(target.id);
+        } else {
+          this.currentLessonId = target.id;
+        }
+      }
+
       this.initChart();
       if (this.tokenData.length) this.updateChart();
       setInterval(() => this.checkHealth(), 10000);
@@ -1324,6 +1778,90 @@ function agentPlayground() {
       localStorage.removeItem('agent_pg_tokendata');
     },
 
+    // ========== 课程模式逻辑 ==========
+    async loadLessons() {
+      try {
+        const r = await fetch(this.backendUrl + '/api/lessons');
+        const j = await r.json();
+        this.lessons = (j.lessons || []).slice().sort((a, b) => a.order - b.order);
+      } catch (e) {
+        console.warn('加载关卡失败:', e);
+        this.lessons = [];
+      }
+    },
+
+    get currentLesson() {
+      return this.lessons.find(l => l.id === this.currentLessonId) || null;
+    },
+
+    get lockedConfig() {
+      return this.currentLesson?.locked_config || {};
+    },
+
+    setMode(m) {
+      if (m === this.mode) return;
+      this.mode = m;
+      localStorage.setItem('agent_pg_mode', m);
+      if (m === 'lesson' && !this.currentLessonId && this.lessons.length) {
+        this.enterLesson(this.lessons[0].id);
+      }
+    },
+
+    enterLesson(id) {
+      const lesson = this.lessons.find(l => l.id === id);
+      if (!lesson) return;
+      this.currentLessonId = id;
+      this.lessonStepIdx = 0;
+      this.lessonComplete = false;
+      this.showLessonExplanation = false;
+      localStorage.setItem('agent_pg_lesson', id);
+
+      // 灌入 preset_config
+      const p = lesson.preset_config || {};
+      if (typeof p.system_prompt === 'string') this.systemPrompt = p.system_prompt;
+      if (Array.isArray(p.enabled_tools))      this.enabledTools = p.enabled_tools.slice();
+      if (Array.isArray(p.custom_tools))       this.customTools = p.custom_tools.slice();
+      if (typeof p.manual_tool_mode === 'boolean') this.manualToolMode = p.manual_tool_mode;
+      if (typeof p.max_steps === 'number')     this.maxSteps = p.max_steps;
+
+      // 进入新关卡 = 一次干净开始
+      this.resetSession();
+    },
+
+    nextLessonStep() {
+      const lesson = this.currentLesson;
+      if (!lesson) return;
+      if (this.lessonStepIdx < (lesson.task_steps?.length || 0) - 1) {
+        this.lessonStepIdx += 1;
+      } else {
+        this.finishLesson();
+      }
+    },
+
+    finishLesson() {
+      if (this.currentLessonId && !this.completedLessons.includes(this.currentLessonId)) {
+        this.completedLessons.push(this.currentLessonId);
+        try {
+          localStorage.setItem('agent_pg_completed', JSON.stringify(this.completedLessons));
+        } catch (e) {}
+      }
+      this.lessonComplete = true;
+    },
+
+    goToNextLesson() {
+      const idx = this.lessons.findIndex(l => l.id === this.currentLessonId);
+      const next = this.lessons[idx + 1];
+      if (next) {
+        this.enterLesson(next.id);
+      } else {
+        // 没有下一关 → 切到自由模式
+        this.setMode('free');
+      }
+    },
+
+    isLessonStepCurrent(i) { return i === this.lessonStepIdx; },
+    isLessonStepDone(i)    { return i <  this.lessonStepIdx; },
+
     cancelRun() {
       if (this.abortController) this.abortController.abort();
     },
@@ -1335,6 +1873,37 @@ function agentPlayground() {
     truncate(s, n) {
       if (!s) return '';
       return s.length > n ? s.slice(0, n) + '...' : s;
+    },
+
+    // 极简 markdown 渲染（仅供 lesson 解读浮层用）
+    renderMarkdown(md) {
+      if (!md) return '';
+      const escape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      let html = '';
+      const lines = md.split('\n');
+      let inOl = false;
+      for (const raw of lines) {
+        const line = escape(raw);
+        if (/^##\s+/.test(line)) {
+          if (inOl) { html += '</ol>'; inOl = false; }
+          html += `<h2>${line.replace(/^##\s+/, '')}</h2>`;
+        } else if (/^\d+\.\s+/.test(line)) {
+          if (!inOl) { html += '<ol>'; inOl = true; }
+          html += `<li>${line.replace(/^\d+\.\s+/, '')}</li>`;
+        } else if (line.trim() === '') {
+          if (inOl) { html += '</ol>'; inOl = false; }
+        } else {
+          if (inOl) { html += '</ol>'; inOl = false; }
+          html += `<p>${line}</p>`;
+        }
+      }
+      if (inOl) html += '</ol>';
+      // **bold** / *italic*
+      html = html
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+?)`/g, '<code>$1</code>');
+      return html;
     },
 
     scrollChatBottom() {

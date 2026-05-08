@@ -26,6 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware                   # noqa: E40
 from sse_starlette.sse import EventSourceResponse                    # noqa: E402
 
 from agent import continue_agent_after_tool, run_agent                # noqa: E402
+from lessons import LESSONS                                          # noqa: E402
 from schemas import ContinueToolRequest, RunAgentRequest              # noqa: E402
 from tools import TOOL_REGISTRY                                      # noqa: E402
 
@@ -57,6 +58,12 @@ def list_tools():
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/lessons")
+def list_lessons():
+    """返回关卡清单。前端按 order 排序渲染选择器。"""
+    return {"lessons": LESSONS}
 
 
 @app.post("/api/run")
