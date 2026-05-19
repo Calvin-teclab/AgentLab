@@ -27,8 +27,6 @@ LESSONS: List[Dict[str, Any]] = [
             "enabled_tools": [],
             "tool_panel_visible": False,
             "custom_tools_visible": False,
-            "manual_tool_mode": False,
-            "manual_tool_mode_visible": False,
             "max_steps_visible": False,
             "system_prompt_editable": False,
         },
@@ -38,7 +36,7 @@ LESSONS: List[Dict[str, Any]] = [
             "system_prompt": "你是一个简洁的助手。直接回答用户的问题，不要过多解释。",
             "enabled_tools": [],
             "custom_tools": [],
-            "manual_tool_mode": False,
+            "manual_tools": [],
             "max_steps": 5,
         },
 

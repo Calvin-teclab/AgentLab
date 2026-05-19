@@ -29,9 +29,14 @@ class RunAgentRequest(BaseModel):
             "每个工具包含 name/description/parameters/response_template。"
         ),
     )
-    manual_tool_mode: bool = Field(
-        default=False,
-        description="是否在模型发起工具调用时暂停,由用户手动填写工具返回结果。",
+    manual_tools: List[str] = Field(
+        default_factory=list,
+        description=(
+            "需要由用户手动填写返回结果的工具名集合。"
+            "应为 enabled_tools 的子集;模型调用其中任何一个时,agent 暂停并 yield "
+            "tool_input_required 事件,由前端补 observation。"
+            "不在该列表的工具按正常逻辑执行(内置工具实跑、custom 工具用 response_template 渲染)。"
+        ),
     )
     max_steps: int = Field(default=10, ge=1, le=30, description="循环最大步数")
     # 关键设计:把 messages 历史也带上
@@ -60,7 +65,10 @@ class ContinueToolRequest(BaseModel):
     tool_result: str = Field(..., description="用户手动填写或修改后的工具返回内容")
     enabled_tools: List[str] = Field(default_factory=list, description="本次启用的工具名列表")
     custom_tools: List[Dict[str, Any]] = Field(default_factory=list, description="前端定义的 mock 工具")
-    manual_tool_mode: bool = Field(default=True, description="续跑时是否继续在下一个工具调用处暂停")
+    manual_tools: List[str] = Field(
+        default_factory=list,
+        description="需要由用户手动填写返回结果的工具名集合(续跑时延用同一份配置)。",
+    )
     max_steps: int = Field(default=10, ge=1, le=30, description="续跑循环最大步数")
     history: List[Dict[str, Any]] = Field(
         default_factory=list,
