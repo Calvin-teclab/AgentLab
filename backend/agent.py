@@ -212,17 +212,97 @@ def _find_pending_tool_call(messages: List[dict]) -> dict:
     return None
 
 
+async def _process_pending_tool_calls(
+    messages: List[dict],
+    manual_tools: set,
+    custom_tools_by_name: Dict[str, dict],
+    step: int,
+) -> AsyncGenerator[AgentEvent, None]:
+    """
+    Walk the unanswered tool_calls of the latest assistant message, in order.
+
+    For each call:
+      - if its name is in `manual_tools`: yield `tool_input_required` and stop
+        (caller detects pause via _find_pending_tool_call).
+      - otherwise: execute (built-in or custom mock template), append a tool
+        message, yield tool_call + tool_result events.
+
+    Pure helper; never raises. Used by both the main loop and the human-resume
+    path so multi-tool-per-step calls behave identically in both directions.
+    """
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if msg.get("role") != "assistant" or not msg.get("tool_calls"):
+            continue
+
+        answered = {
+            m.get("tool_call_id")
+            for m in messages[i + 1:]
+            if m.get("role") == "tool" and m.get("tool_call_id")
+        }
+
+        for tc in msg.get("tool_calls", []):
+            if tc.get("id") in answered:
+                continue
+
+            tool_name = tc.get("function", {}).get("name", "")
+
+            if tool_name in manual_tools:
+                yield AgentEvent(
+                    event="tool_input_required",
+                    step=step,
+                    data={
+                        **_tool_call_payload(tc),
+                        "messages_snapshot": messages,
+                        "remaining_tool_calls": 1,
+                    },
+                )
+                return
+
+            info, result_str = _exec_tool_call(tc, custom_tools_by_name)
+
+            yield AgentEvent(
+                event="tool_call",
+                step=step,
+                data={"tool_call_id": tc["id"], **info},
+            )
+
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc["id"],
+                "content": result_str,
+            })
+
+            yield AgentEvent(
+                event="tool_result",
+                step=step,
+                data={
+                    "tool_call_id": tc["id"],
+                    "tool": info["tool"],
+                    "result": result_str,
+                    "messages_len": len(messages),
+                },
+            )
+        return
+
+
+def _step_from_messages(messages: List[dict]) -> int:
+    """Cosmetic step number for events on the resume path."""
+    return sum(1 for m in messages if m.get("role") == "assistant")
+
+
 async def _run_agent_loop(
     messages: List[dict],
     enabled_tools: List[str],
     max_steps: int,
     model_override: str = None,
     custom_tools: List[dict] = None,
-    manual_tool_mode: bool = False,
+    manual_tools: List[str] = None,
     start_step: int = 1,
 ) -> AsyncGenerator[AgentEvent, None]:
     tools_schema = build_tools_schema(enabled_tools, custom_tools or [])
     custom_tools_by_name = normalize_custom_tools(custom_tools or [])
+    manual_tools_set = set(manual_tools or [])
     model = (model_override or "").strip() or _MODEL
 
     for step in range(start_step, start_step + max_steps):
@@ -258,44 +338,14 @@ async def _run_agent_loop(
             )
             return
 
-        if manual_tool_mode:
-            tc = resp["tool_calls"][0]
-            yield AgentEvent(
-                event="tool_input_required",
-                step=step,
-                data={
-                    **_tool_call_payload(tc),
-                    "messages_snapshot": messages,
-                    "remaining_tool_calls": len(resp["tool_calls"]),
-                },
-            )
+        async for ev in _process_pending_tool_calls(
+            messages, manual_tools_set, custom_tools_by_name, step
+        ):
+            yield ev
+
+        # 若仍有未应答的 tool_call(命中 manual)→ 暂停等待续跑
+        if _find_pending_tool_call(messages):
             return
-
-        for tc in resp["tool_calls"]:
-            info, result_str = _exec_tool_call(tc, custom_tools_by_name)
-
-            yield AgentEvent(
-                event="tool_call",
-                step=step,
-                data={"tool_call_id": tc["id"], **info},
-            )
-
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc["id"],
-                "content": result_str,
-            })
-
-            yield AgentEvent(
-                event="tool_result",
-                step=step,
-                data={
-                    "tool_call_id": tc["id"],
-                    "tool": info["tool"],
-                    "result": result_str,
-                    "messages_len": len(messages),
-                },
-            )
 
     yield AgentEvent(
         event="max_steps",
@@ -315,7 +365,7 @@ async def run_agent(
     history: List[dict],
     model_override: str = None,
     custom_tools: List[dict] = None,
-    manual_tool_mode: bool = False,
+    manual_tools: List[str] = None,
 ) -> AsyncGenerator[AgentEvent, None]:
     """
     Agent 主循环。每一步事件实时 yield 出去,上层负责推给前端。
@@ -351,7 +401,7 @@ async def run_agent(
         max_steps=max_steps,
         model_override=model_override,
         custom_tools=custom_tools,
-        manual_tool_mode=manual_tool_mode,
+        manual_tools=manual_tools,
     ):
         yield ev
 
@@ -364,7 +414,7 @@ async def continue_agent_after_tool(
     history: List[dict],
     model_override: str = None,
     custom_tools: List[dict] = None,
-    manual_tool_mode: bool = True,
+    manual_tools: List[str] = None,
 ) -> AsyncGenerator[AgentEvent, None]:
     """Append a human-provided tool result, then continue the agent loop."""
     messages = list(history)
@@ -394,8 +444,11 @@ async def continue_agent_after_tool(
         "content": tool_result,
     })
 
+    current_step = _step_from_messages(messages)
+
     yield AgentEvent(
         event="tool_result",
+        step=current_step,
         data={
             "tool_call_id": tool_call_id,
             "tool": tool_name,
@@ -407,17 +460,17 @@ async def continue_agent_after_tool(
         },
     )
 
-    next_pending = _find_pending_tool_call(messages)
-    if manual_tool_mode and next_pending:
-        yield AgentEvent(
-            event="tool_input_required",
-            data={
-                **_tool_call_payload(next_pending),
-                "messages_snapshot": messages,
-                "remaining_tool_calls": 1,
-            },
-        )
-        return
+    # 同一个 step 里若仍有未处理的 tool_call,按"real / manual"分别处理
+    custom_tools_by_name = normalize_custom_tools(custom_tools or [])
+    manual_tools_set = set(manual_tools or [])
+
+    async for ev in _process_pending_tool_calls(
+        messages, manual_tools_set, custom_tools_by_name, current_step
+    ):
+        yield ev
+
+    if _find_pending_tool_call(messages):
+        return  # 又遇到 manual,等下一次续跑
 
     async for ev in _run_agent_loop(
         messages=messages,
@@ -425,6 +478,6 @@ async def continue_agent_after_tool(
         max_steps=max_steps,
         model_override=model_override,
         custom_tools=custom_tools,
-        manual_tool_mode=manual_tool_mode,
+        manual_tools=manual_tools,
     ):
         yield ev

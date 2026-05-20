@@ -26,6 +26,8 @@ from fastapi.middleware.cors import CORSMiddleware                   # noqa: E40
 from sse_starlette.sse import EventSourceResponse                    # noqa: E402
 
 from agent import continue_agent_after_tool, run_agent                # noqa: E402
+from evals import BENCHMARK_CASES, FAILURE_TAXONOMY, MASS_TEMPLATES   # noqa: E402
+from lessons import LESSONS                                          # noqa: E402
 from schemas import ContinueToolRequest, RunAgentRequest              # noqa: E402
 from tools import TOOL_REGISTRY                                      # noqa: E402
 
@@ -59,6 +61,22 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/lessons")
+def list_lessons():
+    """返回关卡清单。前端按 order 排序渲染选择器。"""
+    return {"lessons": LESSONS}
+
+
+@app.get("/api/eval-assets")
+def eval_assets():
+    """返回评估用例、业务模板和失败归因 taxonomy。"""
+    return {
+        "benchmarks": BENCHMARK_CASES,
+        "mass_templates": MASS_TEMPLATES,
+        "failure_taxonomy": FAILURE_TAXONOMY,
+    }
+
+
 @app.post("/api/run")
 async def run(req: RunAgentRequest):
     """
@@ -78,7 +96,7 @@ async def run(req: RunAgentRequest):
                 history=req.history,
                 model_override=req.model_override,
                 custom_tools=req.custom_tools,
-                manual_tool_mode=req.manual_tool_mode,
+                manual_tools=req.manual_tools,
             ):
                 # sse_starlette 约定: yield 一个 dict,event 字段是 SSE 的 event name
                 yield {
@@ -120,7 +138,7 @@ async def continue_after_tool(req: ContinueToolRequest):
                 history=req.history,
                 model_override=req.model_override,
                 custom_tools=req.custom_tools,
-                manual_tool_mode=req.manual_tool_mode,
+                manual_tools=req.manual_tools,
             ):
                 yield {
                     "event": ev.event,

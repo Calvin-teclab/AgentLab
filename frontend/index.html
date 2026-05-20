@@ -8,240 +8,521 @@
 <!-- 零构建技术栈:Tailwind CDN + Alpine.js + Chart.js + Split.js -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..700,30..100,0..1&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/split.js@1.6.5/dist/split.min.js"></script>
 
 <style>
+  /* =================================================================
+     Agent Playground — "Observatory" theme
+     Instrument-grade tech aesthetic. Single signal color (sodium amber).
+     Fraunces (literary serif) + Geist (UI) + JetBrains Mono (code/labels).
+     ================================================================= */
   :root {
-    --ink: #161916;
-    --muted: #687269;
-    --paper: #f3f0e7;
-    --panel: rgba(255, 253, 246, .92);
-    --panel-strong: #fffdf6;
-    --line: #d9d1bf;
-    --line-strong: #252a24;
-    --cobalt: #175cff;
-    --signal: #23c55e;
-    --amber: #d97706;
-    --red: #dc2626;
-    --violet: #7c3aed;
-    --cyan: #0891b2;
-    --shadow: 0 20px 45px rgba(38, 33, 22, .08);
+    /* Surfaces */
+    --canvas:      #0a0b0f;
+    --canvas-2:    #0d0f14;
+    --surface:     #14161c;
+    --surface-2:   #191c23;
+    --surface-3:   #20242c;
+    --surface-elev:#262a33;
+
+    /* Ink scale (warm bone, never stark white) */
+    --ink:    #ece5d3;
+    --ink-2:  #b9b1a0;
+    --ink-3:  #807868;
+    --ink-4:  #4f4a42;
+    --ink-5:  #2d2b27;
+
+    /* Hairlines */
+    --line:        rgba(236, 229, 211, .07);
+    --line-strong: rgba(236, 229, 211, .14);
+    --line-bold:   rgba(236, 229, 211, .28);
+
+    /* THE single signal color — sodium amber.
+       Used for ANY accent: active state, focus, pulse, brand. */
+    --signal:        #ffb02e;
+    --signal-2:      #ffc366;
+    --signal-deep:   #c97f10;
+    --signal-glow:   rgba(255, 176, 46, .14);
+    --signal-line:   rgba(255, 176, 46, .42);
+
+    /* Status — used SPARINGLY, only for connection / completion / error */
+    --ok:  #6ee7b7;
+    --err: #fca5a5;
+
+    /* Typography stacks */
+    --serif: "Fraunces", "Songti SC", "STSong", "Source Han Serif SC", "Noto Serif SC", serif;
+    --sans:  "Geist", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
   }
 
+  *, *::before, *::after { box-sizing: border-box; }
   html, body { min-height: 100%; margin: 0; }
+
   body {
-    font-family: "Instrument Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: var(--sans);
+    font-feature-settings: "ss01", "ss02", "cv11";
+    font-size: 14px;
     color: var(--ink);
-    background:
-      radial-gradient(circle at 14% 18%, rgba(35, 197, 94, .12), transparent 24%),
-      linear-gradient(90deg, rgba(22,25,22,.045) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(22,25,22,.045) 1px, transparent 1px),
-      var(--paper);
-    background-size: auto, 28px 28px, 28px 28px, auto;
+    background: var(--canvas);
+    background-image:
+      radial-gradient(1200px 700px at 85% -8%, rgba(255, 176, 46, .035), transparent 60%),
+      radial-gradient(900px 600px at 5% 110%, rgba(255, 176, 46, .015), transparent 70%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+
+  /* Faint instrument grid behind everything */
   body::before {
     content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image: linear-gradient(rgba(255,255,255,.24) 1px, transparent 1px);
-    background-size: 100% 4px;
-    mix-blend-mode: soft-light;
-    opacity: .4;
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(to right,  rgba(236, 229, 211, .018) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(236, 229, 211, .018) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 50%, transparent 100%);
   }
+
+  body > * { position: relative; z-index: 1; }
+
   pre, code, .font-mono {
-    font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-family: var(--mono);
+    font-feature-settings: "calt" 1, "ss01" 1;
   }
   pre { font-size: 12px; line-height: 1.55; }
+
+  /* =====================================================
+     Tailwind utility overrides — flip the implicit "light"
+     palette so existing markup reads in our dark canvas.
+     ===================================================== */
+  main .bg-white,
+  .bg-white {
+    background: var(--surface) !important;
+    border-color: var(--line) !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  .bg-stone-50, .bg-stone-100 { background: var(--surface-2) !important; }
+  .bg-gray-50, .bg-gray-100  { background: var(--surface-2) !important; }
+
+  .text-gray-900, .text-gray-800 { color: var(--ink) !important; }
+  .text-gray-700, .text-gray-600 { color: var(--ink-2) !important; }
+  .text-gray-500, .text-gray-400 { color: var(--ink-3) !important; }
+  .text-gray-300                 { color: var(--ink-4) !important; }
+  .text-stone-50                 { color: var(--canvas) !important; }
+
+  .border, .border-gray-200, .border-stone-200, .border-stone-300,
+  .border-gray-300, .border-stone-100 {
+    border-color: var(--line) !important;
+  }
+  .hover\:bg-stone-50:hover, .hover\:bg-stone-100:hover,
+  .hover\:bg-gray-50:hover,  .hover\:bg-gray-100:hover {
+    background: var(--surface-3) !important;
+  }
+  .hover\:bg-white:hover { background: var(--surface-3) !important; }
+
+  /* Tailwind colored badges → recolor as monochrome amber accents
+     (we want one signal color across the whole UI) */
+  .bg-blue-100, .bg-purple-100, .bg-amber-100, .bg-cyan-50, .bg-cyan-100 {
+    background: rgba(255, 176, 46, .08) !important;
+  }
+  .text-blue-700, .text-purple-700, .text-amber-700, .text-cyan-700 {
+    color: var(--signal) !important;
+  }
+  .border-cyan-300 { border-color: var(--signal-line) !important; }
+  .bg-amber-50 { background: rgba(255, 176, 46, .05) !important; }
+  .border-amber-600 { border-color: var(--signal) !important; }
+
+  .bg-green-50, .bg-green-100 {
+    background: rgba(110, 231, 183, .08) !important;
+  }
+  .text-green-600, .text-green-700 { color: var(--ok) !important; }
+  .border-green-200 { border-color: rgba(110, 231, 183, .25) !important; }
+
+  .bg-red-50, .bg-red-100 {
+    background: rgba(252, 165, 165, .08) !important;
+  }
+  .text-red-600, .text-red-700 { color: var(--err) !important; }
+  .border-red-200 { border-color: rgba(252, 165, 165, .25) !important; }
+  .hover\:bg-red-50:hover { background: rgba(252, 165, 165, .12) !important; }
+
+  /* Solid action buttons → become signal */
+  .bg-gray-900, .bg-black {
+    background: var(--signal) !important;
+    color: var(--canvas) !important;
+  }
+  .hover\:bg-black:hover, .hover\:bg-gray-900:hover {
+    background: var(--signal-2) !important;
+    color: var(--canvas) !important;
+  }
+  .disabled\:bg-gray-300:disabled {
+    background: var(--surface-3) !important;
+    color: var(--ink-4) !important;
+  }
+
+  /* =====================================================
+     Topbar — tonal split, hairline scan
+     ===================================================== */
   .app-topbar {
-    background: rgba(255, 253, 246, .86);
-    backdrop-filter: blur(18px);
-    border-bottom: 1px solid var(--line-strong);
-    box-shadow: 0 1px 0 rgba(255,255,255,.7) inset;
+    background: linear-gradient(180deg, rgba(13, 15, 20, .95), rgba(13, 15, 20, .82));
+    backdrop-filter: blur(28px) saturate(140%);
+    border-bottom: 1px solid var(--line);
+    position: relative;
   }
+  .app-topbar::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 5%, var(--signal-line) 50%, transparent 95%);
+    opacity: .55;
+  }
+
   .brand-mark {
-    width: 38px;
-    height: 38px;
-    display: grid;
-    place-items: center;
-    border: 1px solid var(--line-strong);
-    background: var(--ink);
-    color: var(--paper);
-    font-weight: 800;
-    letter-spacing: 0;
-  }
-  .app-title {
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: 0;
-    line-height: 1;
-  }
-  .app-subtitle {
-    color: var(--muted);
-    font-size: 12px;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-  }
-  .safety-strip {
-    background: #241f17;
-    color: #f5eddc;
-    border-bottom: 1px solid #090a08;
-  }
-  .safety-strip code {
-    background: rgba(245, 237, 220, .12);
-    color: #fff8e8;
-    border: 1px solid rgba(245, 237, 220, .2);
-  }
-  #main-split {
-    gap: 0;
-  }
-  main .bg-white {
-    background: var(--panel);
-    border-color: var(--line);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(16px);
-  }
-  .panel-title {
-    color: var(--ink);
-    font-weight: 800;
-    letter-spacing: 0;
-  }
-  .section-kicker {
-    color: var(--muted);
+    width: 38px; height: 38px;
+    display: grid; place-items: center;
+    border-radius: 0;
+    background: transparent;
+    color: var(--signal);
+    border: 1px solid var(--signal-line);
+    font-family: var(--mono);
+    font-weight: 600;
     font-size: 11px;
-    font-weight: 700;
+    letter-spacing: .04em;
+    position: relative;
+    box-shadow: inset 0 0 0 1px rgba(255,176,46,.04), 0 0 28px -8px var(--signal-glow);
+  }
+  /* Viewfinder ticks on brand */
+  .brand-mark::before, .brand-mark::after {
+    content: ""; position: absolute;
+    width: 5px; height: 5px;
+    border: 1px solid var(--signal); pointer-events: none;
+  }
+  .brand-mark::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  .brand-mark::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+  .app-title {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1;
+    font-variation-settings: "opsz" 36, "SOFT" 30, "WONK" 0;
+    color: var(--ink);
+  }
+
+  .app-subtitle {
+    font-family: var(--mono);
+    color: var(--ink-3);
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* =====================================================
+     Safety strip — dense tech ribbon
+     ===================================================== */
+  .safety-strip {
+    background: var(--surface-2);
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--line);
+    border-top: none;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .04em;
+    line-height: 1.5;
+    position: relative;
+  }
+  .safety-strip b {
+    color: var(--signal);
+    font-weight: 500;
     letter-spacing: .12em;
     text-transform: uppercase;
-  }
-  .card-hover {
-    transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
-    background: rgba(255, 253, 246, .68);
-  }
-  .card-hover:hover {
-    transform: translateY(-1px);
-    border-color: var(--line-strong);
-    box-shadow: 0 10px 22px rgba(38, 33, 22, .08);
-  }
-  .badge {
-    padding: 3px 9px;
-    border-radius: 2px;
     font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    border: 1px solid currentColor;
+    margin-right: 6px;
   }
-  input[type="text"], textarea {
-    background: rgba(255, 253, 246, .82);
-    border-color: var(--line) !important;
+  .safety-strip code {
+    background: var(--surface);
+    color: var(--signal);
+    border: 1px solid var(--line-strong);
+    border-radius: 0;
+    padding: 1px 6px;
+    font-size: 10.5px;
+  }
+
+  /* =====================================================
+     Panels — viewfinder corner ticks (signature detail)
+     ===================================================== */
+  main .bg-white {
+    position: relative;
+    box-shadow:
+      inset 0 1px 0 rgba(236, 229, 211, .025),
+      0 24px 48px -24px rgba(0, 0, 0, .5);
+  }
+  main .bg-white::before,
+  main .bg-white::after {
+    content: ""; position: absolute;
+    width: 10px; height: 10px;
+    pointer-events: none;
+    border: 1px solid var(--ink-4);
+    transition: border-color .25s ease;
+  }
+  main .bg-white::before { top: -1px; left: -1px;  border-width: 1px 0 0 1px; }
+  main .bg-white::after  { top: -1px; right: -1px; border-width: 1px 1px 0 0; }
+  main .bg-white:hover::before,
+  main .bg-white:hover::after { border-color: var(--signal-line); }
+
+  /* =====================================================
+     Section labels & panel titles
+     ===================================================== */
+  .panel-title {
+    font-family: var(--serif);
     color: var(--ink);
-    outline: none;
-    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    font-weight: 400;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    font-variation-settings: "opsz" 24, "SOFT" 20, "WONK" 1;
   }
+
+  .section-kicker {
+    font-family: var(--mono);
+    color: var(--ink-3);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .24em;
+    text-transform: uppercase;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-kicker::before {
+    content: "";
+    display: inline-block;
+    width: 6px; height: 1px;
+    background: var(--signal);
+  }
+
+  /* =====================================================
+     Buttons / inputs / generic primitives
+     ===================================================== */
+  button {
+    transition: background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    cursor: pointer;
+    border-radius: 0;
+  }
+  button:hover:not(:disabled) { transform: none; }
+  button:disabled { cursor: not-allowed; opacity: .55; }
+
+  input[type="text"], textarea {
+    background: var(--surface-2) !important;
+    border: 1px solid var(--line-strong) !important;
+    color: var(--ink) !important;
+    outline: none;
+    font-family: var(--mono);
+    border-radius: 0 !important;
+    transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+  input[type="text"]::placeholder, textarea::placeholder { color: var(--ink-4); }
   input[type="text"]:focus, textarea:focus {
-    border-color: var(--cobalt) !important;
-    box-shadow: 0 0 0 3px rgba(23, 92, 255, .14);
-    background: var(--panel-strong);
+    border-color: var(--signal) !important;
+    box-shadow: 0 0 0 1px var(--signal), 0 0 24px -8px var(--signal-glow) !important;
+    background: var(--canvas-2) !important;
+  }
+  input[type="checkbox"] {
+    accent-color: var(--signal);
+    width: 13px; height: 13px;
   }
   input[type="range"] {
-    accent-color: var(--ink);
+    accent-color: var(--signal);
+    background: transparent;
   }
-  button {
-    transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
+
+  .card-hover {
+    transition: border-color .2s ease, background .2s ease;
+    background: transparent;
   }
-  button:hover:not(:disabled) {
-    transform: translateY(-1px);
+  .card-hover:hover {
+    border-color: var(--line-strong) !important;
+    background: var(--surface-2);
   }
-  button:disabled {
-    cursor: not-allowed;
+
+  .badge {
+    padding: 2px 7px;
+    border-radius: 0;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.4;
   }
+
+  .metric-chip {
+    border: 1px solid var(--line-strong);
+    background: var(--surface-2);
+    padding: 5px 9px;
+    border-radius: 0;
+    color: var(--ink-2);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+  }
+  .metric-chip .font-mono { color: var(--signal); }
+
   .scroll-fade { mask-image: linear-gradient(to bottom, black 90%, transparent); }
 
-  /* 时间轴竖线 */
-  .timeline-item { position: relative; padding-left: 24px; }
+  /* Selection */
+  ::selection { background: var(--signal); color: var(--canvas); }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--signal-line); }
+
+  /* =====================================================
+     Pulse dot
+     ===================================================== */
+  .pulse-dot {
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    display: inline-block;
+    background: var(--ok);
+    box-shadow: 0 0 0 4px rgba(110, 231, 183, .12);
+    animation: pulseDot 2.4s ease-in-out infinite;
+  }
+  .pulse-dot.off {
+    background: var(--err);
+    box-shadow: 0 0 0 4px rgba(252, 165, 165, .12);
+    animation: none;
+  }
+  @keyframes pulseDot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(110, 231, 183, .35); }
+    50%      { box-shadow: 0 0 0 7px rgba(110, 231, 183, 0); }
+  }
+
+  /* =====================================================
+     Timeline (right pane trace)
+     ===================================================== */
+  .timeline-item { position: relative; padding-left: 26px; }
   .timeline-item::before {
-    content: ""; position: absolute; left: 8px; top: 22px; bottom: -12px;
-    width: 2px; background: repeating-linear-gradient(to bottom, var(--line-strong) 0 4px, transparent 4px 8px);
-    opacity: .38;
+    content: ""; position: absolute; left: 9px; top: 22px; bottom: -12px;
+    width: 1px;
+    background: repeating-linear-gradient(to bottom, var(--ink-4) 0 3px, transparent 3px 7px);
+    opacity: .65;
   }
   .timeline-item:last-child::before { display: none; }
   .timeline-dot {
-    position: absolute; left: 2px; top: 10px;
-    width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--panel-strong);
-    box-shadow: 0 0 0 1px rgba(22,25,22,.28);
+    position: absolute; left: 3px; top: 8px;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    border: 2px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--line-bold);
   }
 
-  /* ===== Split.js 分栏样式 ===== */
+  /* =====================================================
+     Split.js gutters
+     ===================================================== */
+  #main-split { gap: 0; }
   .split { display: flex; flex-direction: row; height: 100%; }
   .split > .pane { overflow: hidden; display: flex; flex-direction: column; }
-  /* 水平 gutter(三栏之间的竖条) */
+  .v-split { display: flex; flex-direction: column; height: 100%; }
+  .v-split > .pane { overflow: hidden; display: flex; flex-direction: column; }
+
   .gutter.gutter-horizontal {
-    background:
-      linear-gradient(var(--line-strong), var(--line-strong)) center/1px 38px no-repeat,
-      transparent;
     cursor: col-resize;
     width: 14px;
-    transition: background .15s, opacity .15s;
-    opacity: .55;
+    background:
+      linear-gradient(var(--ink-4), var(--ink-4)) center/1px 28px no-repeat,
+      transparent;
+    transition: background .18s, opacity .18s;
+    opacity: .4;
   }
   .gutter.gutter-horizontal:hover {
     background:
-      linear-gradient(var(--cobalt), var(--cobalt)) center/2px 56px no-repeat,
-      rgba(23, 92, 255, .08);
+      linear-gradient(var(--signal), var(--signal)) center/1px 56px no-repeat,
+      transparent;
     opacity: 1;
   }
-  /* 垂直 gutter(中/右栏上下两块之间) */
-  .v-split { display: flex; flex-direction: column; height: 100%; }
-  .v-split > .pane { overflow: hidden; display: flex; flex-direction: column; }
   .gutter.gutter-vertical {
-    background:
-      linear-gradient(90deg, var(--line-strong), var(--line-strong)) center/54px 1px no-repeat,
-      transparent;
     cursor: row-resize;
     height: 14px;
-    transition: background .15s, opacity .15s;
-    opacity: .55;
+    background:
+      linear-gradient(90deg, var(--ink-4), var(--ink-4)) center/40px 1px no-repeat,
+      transparent;
+    transition: background .18s, opacity .18s;
+    opacity: .4;
   }
   .gutter.gutter-vertical:hover {
     background:
-      linear-gradient(90deg, var(--cobalt), var(--cobalt)) center/72px 2px no-repeat,
-      rgba(23, 92, 255, .08);
+      linear-gradient(90deg, var(--signal), var(--signal)) center/64px 1px no-repeat,
+      transparent;
     opacity: 1;
   }
+
+  /* =====================================================
+     Chat messages
+     ===================================================== */
   .message-user {
-    background: var(--ink);
-    color: var(--paper);
-    border: 1px solid var(--line-strong);
-    box-shadow: 0 10px 24px rgba(22, 25, 22, .12);
+    background: var(--signal);
+    color: var(--canvas);
+    border: none !important;
+    border-radius: 0 !important;
+    font-weight: 500;
+    box-shadow: 0 6px 18px -8px var(--signal-glow);
+    position: relative;
+    padding: 10px 14px !important;
+  }
+  .message-user::before {
+    content: "USER";
+    position: absolute;
+    right: 0; top: -16px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .22em;
+    color: var(--ink-3);
   }
   .message-assistant {
-    background: #fff8df;
-    border: 1px solid var(--line);
+    background: var(--surface-2);
     color: var(--ink);
+    border: 1px solid var(--line) !important;
+    border-radius: 0 !important;
+    padding: 10px 14px !important;
+    position: relative;
   }
+  .message-assistant::before {
+    content: "MODEL";
+    position: absolute;
+    left: 0; top: -16px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .22em;
+    color: var(--signal);
+  }
+
   .console-slab {
-    background: #171a17 !important;
-    color: #e8f2df;
-    border: 1px solid #0a0c09 !important;
+    background: var(--canvas) !important;
+    color: var(--signal-2) !important;
+    border: 1px solid var(--line-strong) !important;
+    border-radius: 0 !important;
+    font-family: var(--mono) !important;
   }
-  .console-slab pre, pre.console-slab {
-    color: #e8f2df;
-  }
-  .metric-chip {
-    border: 1px solid var(--line);
-    background: rgba(255, 253, 246, .72);
-    padding: 6px 9px;
-    border-radius: 4px;
-  }
-  .tool-list {
-    max-height: 230px;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
+
+  /* =====================================================
+     Tool list cards
+     ===================================================== */
+  .tool-list { max-height: 240px; overflow-y: auto; padding-right: 4px; }
   .tool-description {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -249,27 +530,584 @@
     overflow: hidden;
   }
   .tool-card {
-    padding: 7px 8px;
+    padding: 9px 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 0 !important;
+    background: var(--surface) !important;
+    transition: border-color .18s ease, background .18s ease;
+    position: relative;
   }
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    display: inline-block;
+  .tool-card:hover {
+    border-color: var(--line-strong) !important;
+    background: var(--surface-2) !important;
+  }
+  .tool-card:has(input[type="checkbox"]:checked) {
+    border-color: var(--signal-line) !important;
+    background: rgba(255, 176, 46, .025) !important;
+  }
+  .tool-card:has(input[type="checkbox"]:checked)::before {
+    content: ""; position: absolute;
+    left: 0; top: 0; bottom: 0; width: 2px;
     background: var(--signal);
-    box-shadow: 0 0 0 5px rgba(35, 197, 94, .12);
-  }
-  .pulse-dot.off {
-    background: var(--red);
-    box-shadow: 0 0 0 5px rgba(220, 38, 38, .12);
   }
 
+  /* =====================================================
+     Mode toggle — hardware switch
+     ===================================================== */
+  .mode-toggle {
+    display: inline-flex;
+    background: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    border-radius: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .mode-toggle button {
+    padding: 6px 14px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: transparent;
+    position: relative;
+    border-right: 1px solid var(--line);
+  }
+  .mode-toggle button:last-child { border-right: none; }
+  .mode-toggle button:hover { color: var(--ink-2); }
+  .mode-toggle button.active {
+    color: var(--signal);
+    background: rgba(255, 176, 46, .06);
+  }
+  .mode-toggle button.active::after {
+    content: ""; position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 1px;
+    background: var(--signal);
+  }
+
+  /* =====================================================
+     Lesson selector pill
+     ===================================================== */
+  .lesson-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px 5px 5px;
+    border-radius: 0;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color .18s, background .18s;
+  }
+  .lesson-pill:hover {
+    border-color: var(--signal-line);
+    background: var(--surface-2);
+  }
+  .lesson-pill .order-num {
+    display: inline-grid;
+    place-items: center;
+    width: 22px; height: 20px;
+    border-radius: 0;
+    background: var(--signal);
+    color: var(--canvas);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  /* =====================================================
+     Lesson card — the centerpiece
+     ===================================================== */
+  .lesson-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 0;
+    padding: 28px 26px 26px 32px;
+    box-shadow:
+      inset 0 1px 0 rgba(236, 229, 211, .03),
+      0 30px 60px -30px rgba(0, 0, 0, .55);
+  }
+  /* Amber side-rail with terminal tick */
+  .lesson-card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--signal);
+    box-shadow: 0 0 24px -2px var(--signal-glow);
+  }
+  /* Top tick mark */
+  .lesson-card::after {
+    content: "";
+    position: absolute;
+    left: -3px; top: -1px;
+    width: 10px; height: 1px;
+    background: var(--signal);
+  }
+
+  .lesson-card-header { margin-bottom: 18px; }
+
+  .lesson-card-eyebrow {
+    font-family: var(--mono);
+    color: var(--signal);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .lesson-card-eyebrow::before {
+    content: "";
+    width: 8px; height: 1px;
+    background: var(--signal);
+    display: inline-block;
+  }
+
+  .lesson-card-title {
+    font-family: var(--serif);
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.08;
+    letter-spacing: -0.022em;
+    font-variation-settings: "opsz" 96, "SOFT" 30, "WONK" 1;
+    color: var(--ink);
+    margin: 4px 0 6px;
+  }
+  .lesson-card-subtitle {
+    font-family: var(--serif);
+    color: var(--ink-2);
+    font-size: 14px;
+    font-style: italic;
+    font-weight: 400;
+    font-variation-settings: "opsz" 14, "SOFT" 100;
+    margin-top: 2px;
+  }
+  .lesson-intro {
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.65;
+    margin-bottom: 22px;
+  }
+  .lesson-intro strong {
+    color: var(--signal);
+    font-weight: 500;
+  }
+
+  /* =====================================================
+     Step list — instrument readout
+     ===================================================== */
+  .step-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 20px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .step-item {
+    display: flex;
+    gap: 14px;
+    padding: 14px 4px 14px 4px;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    border-radius: 0;
+    position: relative;
+    transition: background .18s, color .18s;
+  }
+  .step-item:last-child { border-bottom: none; }
+
+  .step-item.current {
+    background: linear-gradient(90deg, var(--signal-glow) 0%, transparent 60%);
+  }
+  .step-item.current::before {
+    content: ""; position: absolute;
+    left: -32px; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--signal);
+  }
+
+  .step-item.done { opacity: .55; }
+  .step-item.done .step-instruction { text-decoration: line-through;
+    text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 32px; height: 22px;
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: .04em;
+    background: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    color: var(--ink-3);
+    border-radius: 0;
+  }
+  .step-item.current .step-num {
+    background: var(--signal);
+    color: var(--canvas);
+    border-color: var(--signal);
+  }
+  .step-item.done .step-num {
+    background: transparent;
+    color: var(--signal);
+    border-color: var(--signal-line);
+  }
+
+  .step-instruction {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .step-instruction strong {
+    background: rgba(255, 176, 46, .07);
+    color: var(--signal);
+    padding: 1px 6px;
+    border-radius: 0;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 12.5px;
+    letter-spacing: 0;
+  }
+  .step-hint {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-top: 5px;
+    line-height: 1.6;
+    letter-spacing: .02em;
+  }
+  .step-hint::before {
+    content: "// ";
+    color: var(--ink-4);
+  }
+
+  /* =====================================================
+     Aha banner — literary reveal
+     ===================================================== */
+  .aha-banner {
+    background: linear-gradient(180deg, rgba(255, 176, 46, .06), transparent);
+    border: 1px solid var(--signal-line);
+    border-radius: 0;
+    padding: 18px 22px 20px;
+    margin-bottom: 18px;
+    position: relative;
+    animation: ahaIn .7s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .aha-banner::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--signal);
+    box-shadow: 0 0 24px -2px var(--signal-glow);
+  }
+  .aha-banner-eyebrow {
+    font-family: var(--mono);
+    color: var(--signal);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .aha-banner-text {
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ink);
+    font-style: italic;
+    font-weight: 400;
+    font-variation-settings: "opsz" 24, "SOFT" 60;
+    letter-spacing: -0.005em;
+  }
+  @keyframes ahaIn {
+    from { opacity: 0; transform: translateY(6px); letter-spacing: .04em; }
+    to   { opacity: 1; transform: translateY(0);   letter-spacing: -0.005em; }
+  }
+
+  /* =====================================================
+     Lesson CTA — hard-edged signal button
+     ===================================================== */
+  .lesson-cta {
+    width: 100%;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: 0;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+  }
+  .lesson-cta::after {
+    content: "";
+    position: absolute; top: 0; bottom: 0; right: 0;
+    width: 0; background: var(--signal);
+    transition: width .35s cubic-bezier(.6,.05,.3,.95);
+    z-index: 0;
+  }
+  .lesson-cta > * { position: relative; z-index: 1; transition: color .25s; }
+  .lesson-cta:hover {
+    border-color: var(--signal);
+    color: var(--canvas);
+  }
+  .lesson-cta:hover::after { width: 100%; }
+  .lesson-cta.signal {
+    background: var(--signal);
+    color: var(--canvas);
+    border-color: var(--signal);
+  }
+  .lesson-cta.signal:hover {
+    background: var(--signal-2);
+  }
+
+  /* =====================================================
+     Lesson preset summary
+     ===================================================== */
+  .lesson-setup {
+    border: 1px dashed var(--line-strong);
+    border-radius: 0;
+    padding: 12px 14px;
+    background: var(--canvas-2);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-top: 18px;
+  }
+  .lesson-setup summary {
+    font-family: var(--mono);
+    font-size: 10px !important;
+    color: var(--ink-3) !important;
+    letter-spacing: .22em !important;
+    text-transform: uppercase;
+    font-weight: 500 !important;
+  }
+  .lesson-setup-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+  }
+  .lesson-setup-row > span:first-child { color: var(--ink-3); }
+  .lesson-setup-row code {
+    color: var(--ink);
+    background: transparent;
+    font-weight: 400;
+  }
+
+  /* =====================================================
+     "Why" expandable explainer
+     ===================================================== */
+  .lesson-explain-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+  .lesson-explain-toggle:hover { color: var(--signal); }
+  .lesson-explain-body {
+    background: var(--canvas-2);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--signal);
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    border-radius: 0;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink-2);
+  }
+  .lesson-explain-body h2 {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 12px;
+    font-variation-settings: "opsz" 24, "SOFT" 30, "WONK" 1;
+    letter-spacing: -0.01em;
+  }
+  .lesson-explain-body p { margin: 0 0 12px; }
+  .lesson-explain-body ol { padding-left: 22px; margin: 10px 0 14px; }
+  .lesson-explain-body ol li { margin-bottom: 6px; }
+  .lesson-explain-body code {
+    background: var(--surface-3);
+    color: var(--signal);
+    padding: 1px 6px;
+    border-radius: 0;
+    font-size: 12.5px;
+    border: 1px solid var(--line);
+  }
+  .lesson-explain-body em {
+    color: var(--ink-3);
+    font-family: var(--serif);
+    font-style: italic;
+    border-left: 1px solid var(--signal-line);
+    padding-left: 12px;
+    display: block;
+    margin-top: 14px;
+    font-size: 13px;
+    font-variation-settings: "opsz" 14, "SOFT" 100;
+  }
+  .lesson-explain-body strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* =====================================================
+     Compact icon button
+     ===================================================== */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 5px 10px;
+    border-radius: 0;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    transition: color .18s, border-color .18s, background .18s;
+  }
+  .icon-btn:hover {
+    color: var(--signal);
+    border-color: var(--signal-line);
+    background: rgba(255, 176, 46, .04);
+  }
+
+  /* =====================================================
+     Eval / diagnosis cards
+     ===================================================== */
+  .eval-card {
+    position: relative;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 10px;
+    transition: border-color .18s, background .18s;
+  }
+  .eval-card:hover {
+    border-color: var(--signal-line);
+    background: var(--surface-3);
+  }
+  .eval-card.active {
+    border-color: var(--signal);
+    box-shadow: inset 2px 0 0 var(--signal);
+  }
+  .diagnostic-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .diagnostic-metric {
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    padding: 10px;
+  }
+  .diagnostic-metric .label {
+    font-family: var(--mono);
+    color: var(--ink-3);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .diagnostic-metric .value {
+    font-family: var(--mono);
+    color: var(--ink);
+    font-size: 18px;
+    margin-top: 2px;
+  }
+  .diagnostic-signal {
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--signal);
+    background: var(--canvas-2);
+    padding: 10px;
+  }
+  .diagnostic-signal.severe { border-left-color: var(--err); }
+  .diagnostic-signal.ok { border-left-color: var(--ok); }
+  .side-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    background: var(--canvas-2);
+    margin-bottom: 14px;
+  }
+  .side-tabs button {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 8px 6px;
+    border-right: 1px solid var(--line);
+    background: transparent;
+    transition: background .18s, color .18s;
+  }
+  .side-tabs button:last-child { border-right: none; }
+  .side-tabs button:hover { color: var(--ink-2); }
+  .side-tabs button.active {
+    color: var(--canvas);
+    background: var(--signal);
+  }
+
+  /* =====================================================
+     Boot-in motion: staggered fade as a single moment
+     ===================================================== */
+  @keyframes bootIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .app-topbar      { animation: bootIn .55s ease both; animation-delay: 0ms; }
+  .safety-strip    { animation: bootIn .55s ease both; animation-delay: 80ms; }
+  #pane-left       { animation: bootIn .55s ease both; animation-delay: 160ms; }
+  #pane-mid        { animation: bootIn .55s ease both; animation-delay: 220ms; }
+  #pane-right      { animation: bootIn .55s ease both; animation-delay: 280ms; }
+  .step-item       { animation: bootIn .45s ease both; }
+  .step-item:nth-child(1) { animation-delay: 320ms; }
+  .step-item:nth-child(2) { animation-delay: 380ms; }
+  .step-item:nth-child(3) { animation-delay: 440ms; }
+  .step-item:nth-child(4) { animation-delay: 500ms; }
+  .step-item:nth-child(5) { animation-delay: 560ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0ms !important; transition: none !important; }
+  }
+
+  /* =====================================================
+     Mobile fallback
+     ===================================================== */
   @media (max-width: 959px) {
     body { overflow: auto; }
-    .split, .v-split {
-      display: block;
-      height: auto !important;
-    }
+    body::before { display: none; }
+    .split, .v-split { display: block; height: auto !important; }
     .split > .pane, .v-split > .pane {
       width: 100% !important;
       height: auto !important;
@@ -277,16 +1115,12 @@
       margin-bottom: 12px;
       overflow: visible;
     }
-    #main-split {
-      height: auto !important;
-      padding: 10px !important;
-    }
-    main .bg-white {
-      max-height: none;
-    }
+    #main-split { height: auto !important; padding: 10px !important; }
+    main .bg-white { max-height: none; }
     .gutter { display: none; }
-    .app-title { font-size: 16px; }
+    .app-title { font-size: 18px; }
     .app-subtitle { display: none; }
+    .lesson-card-title { font-size: 24px; }
   }
 </style>
 </head>
@@ -296,30 +1130,67 @@
 
 <!-- ========== 顶部栏 ========== -->
 <header class="app-topbar px-6 py-3 flex items-center justify-between flex-wrap gap-3">
-  <div class="flex items-center gap-3">
-    <div class="brand-mark">AP</div>
-    <div>
-      <div class="app-title">Agent Playground</div>
-      <div class="app-subtitle">Trace Lab / Token Observatory</div>
+  <div class="flex items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="brand-mark">AP</div>
+      <div>
+        <div class="app-title">Agent Playground</div>
+        <div class="app-subtitle" x-text="mode === 'lesson' ? '课程模式 · 看见 agent 的每一步' : '自由模式 · eval + trace lab'"></div>
+      </div>
+    </div>
+
+    <!-- 模式切换 -->
+    <div class="mode-toggle ml-2" role="tablist">
+      <button :class="mode === 'lesson' ? 'active' : ''" @click="setMode('lesson')">课程</button>
+      <button :class="mode === 'free' ? 'active' : ''" @click="setMode('free')">自由</button>
+    </div>
+
+    <!-- 关卡选择(仅 lesson mode) -->
+    <div x-show="mode === 'lesson' && lessons.length > 0" class="relative" @click.outside="lessonMenuOpen = false">
+      <button class="lesson-pill" @click="lessonMenuOpen = !lessonMenuOpen">
+        <span class="order-num" x-text="currentLesson?.order ?? '·'"></span>
+        <span x-text="currentLesson?.title ?? '选择一关'"></span>
+        <span class="text-gray-400" x-text="lessonMenuOpen ? '▴' : '▾'"></span>
+      </button>
+      <div x-show="lessonMenuOpen" x-transition.opacity
+           class="absolute left-0 mt-2 w-72 bg-white border border-stone-200 rounded-lg shadow-lg overflow-hidden z-50">
+        <template x-for="l in lessons" :key="l.id">
+          <button @click="enterLesson(l.id); lessonMenuOpen = false"
+                  class="block w-full text-left px-4 py-3 hover:bg-stone-50 border-b border-stone-100 last:border-b-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="order-num" style="background: var(--cobalt); color: white;
+                    display: inline-grid; place-items: center; width: 20px; height: 20px;
+                    border-radius: 999px; font-size: 10px; font-weight: 700;"
+                    x-text="l.order"></span>
+              <span class="font-semibold text-sm" x-text="l.title"></span>
+              <span x-show="completedLessons.includes(l.id)" class="text-green-600 text-xs">✓</span>
+            </div>
+            <div class="text-xs text-gray-500 ml-7" x-text="l.subtitle"></div>
+          </button>
+        </template>
+      </div>
     </div>
   </div>
-  <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
-    <!-- 后端地址 -->
-    <label class="section-kicker">后端</label>
-    <input type="text" x-model="backendUrl"
-           class="border rounded px-2 py-1 w-52 text-xs font-mono"
-           placeholder="http://127.0.0.1:8000" />
 
-    <!-- Endpoint 覆盖(API Key 永远只在后端.env) -->
-    <label class="section-kicker ml-2" title="覆盖后端 .env 中的 ARK_MODEL,留空则用默认。API Key 永远在后端,前端无法修改。">
-      Endpoint
-    </label>
-    <input type="text" x-model="modelOverride"
-           class="border rounded px-2 py-1 w-40 text-xs font-mono"
-           placeholder="ep-xxxxxx (留空=默认)" />
+  <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
+    <!-- 高级配置(后端地址 / endpoint),仅 free mode 完整可见 -->
+    <details class="text-xs" x-show="mode === 'free'">
+      <summary class="cursor-pointer text-gray-500 hover:text-gray-900 select-none">⚙ 后端配置</summary>
+      <div class="absolute right-6 mt-2 bg-white border border-stone-200 rounded-lg shadow-lg p-3 z-50 w-80">
+        <label class="section-kicker block mb-1">后端 URL</label>
+        <input type="text" x-model="backendUrl"
+               class="w-full border rounded px-2 py-1 text-xs font-mono mb-2"
+               placeholder="http://127.0.0.1:8000" />
+        <label class="section-kicker block mb-1" title="覆盖后端 .env 中的 ARK_MODEL,留空则用默认">Endpoint 覆盖</label>
+        <input type="text" x-model="modelOverride"
+               class="w-full border rounded px-2 py-1 text-xs font-mono"
+               placeholder="ep-xxxxxx (留空=默认)" />
+        <p class="text-[10px] text-gray-400 mt-2">API Key 永远只在后端 .env</p>
+      </div>
+    </details>
 
     <span class="badge"
-          :class="backendOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+          :class="backendOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
       <span class="pulse-dot mr-2 align-middle" :class="backendOnline ? '' : 'off'"></span>
       <span x-text="backendOnline ? '已连接' : '未连接'"></span>
     </span>
@@ -335,21 +1206,116 @@
 <!-- ========== 三栏水平布局(可拖拽) ========== -->
 <main id="main-split" class="split" style="height: calc(100vh - 92px); padding: 12px;">
 
-  <!-- ========== 左栏:配置面板 ========== -->
+  <!-- ========== 左栏 ========== -->
   <aside id="pane-left" class="pane">
-    <div class="bg-white rounded-lg border border-gray-200 p-4 flex-1 overflow-y-auto">
+
+    <!-- 课程模式: Lesson Card -->
+    <div x-show="mode === 'lesson'" class="bg-white rounded-lg border border-gray-200 p-5 flex-1 overflow-y-auto">
+      <template x-if="currentLesson">
+        <div>
+          <div class="lesson-card">
+            <div class="lesson-card-header">
+              <div class="lesson-card-eyebrow">
+                Lesson <span x-text="currentLesson.order"></span> · 约 <span x-text="currentLesson.estimated_minutes"></span> 分钟
+              </div>
+              <div class="lesson-card-title" x-text="currentLesson.title"></div>
+              <div class="lesson-card-subtitle" x-text="currentLesson.subtitle"></div>
+            </div>
+
+            <div class="lesson-intro" x-html="currentLesson.task_intro.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')"></div>
+
+            <ol class="step-list">
+              <template x-for="(step, i) in currentLesson.task_steps" :key="i">
+                <li class="step-item"
+                    :class="{ 'current': isLessonStepCurrent(i), 'done': isLessonStepDone(i) }">
+                  <div class="step-num" x-text="isLessonStepDone(i) ? '✓' : (i + 1)"></div>
+                  <div>
+                    <div class="step-instruction"
+                         x-html="step.instruction.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')"></div>
+                    <div class="step-hint" x-show="step.hint && (isLessonStepCurrent(i) || isLessonStepDone(i))"
+                         x-text="step.hint"></div>
+                  </div>
+                </li>
+              </template>
+            </ol>
+
+            <!-- Aha 卡 + 解读：仅在用户点完最后一步的"我看到了"后展开 -->
+            <template x-if="lessonComplete">
+              <div>
+                <div class="aha-banner">
+                  <div class="aha-banner-eyebrow">💡 你刚刚看见了</div>
+                  <div class="aha-banner-text" x-text="currentLesson.aha"></div>
+                </div>
+
+                <button class="lesson-explain-toggle"
+                        @click="showLessonExplanation = !showLessonExplanation">
+                  <span x-text="showLessonExplanation ? '▾ 收起为什么' : '▸ 为什么会这样'"></span>
+                </button>
+                <div class="lesson-explain-body" x-show="showLessonExplanation" x-transition>
+                  <div x-html="renderMarkdown(currentLesson.explanation_md)"></div>
+                </div>
+              </div>
+            </template>
+
+            <button class="lesson-cta"
+                    :class="{ 'signal': lessonComplete }"
+                    @click="!lessonComplete
+                            ? (lessonStepIdx < (currentLesson.task_steps?.length || 0) - 1 ? nextLessonStep() : finishLesson())
+                            : goToNextLesson()">
+              <span x-show="!lessonComplete && lessonStepIdx < (currentLesson.task_steps?.length || 0) - 1">我看到了 · 下一步 →</span>
+              <span x-show="!lessonComplete && lessonStepIdx >= (currentLesson.task_steps?.length || 0) - 1">✓ 完成 · 看为什么</span>
+              <span x-show="lessonComplete" x-text="currentLesson.next_hint || '进入下一关 →'"></span>
+            </button>
+          </div>
+
+          <!-- 锁定的预设(只读展示) -->
+          <details class="lesson-setup">
+            <summary style="cursor: pointer; font-size: 11px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; font-weight: 700;">
+              本关预设 · 点开查看
+            </summary>
+            <div class="lesson-setup-row" style="margin-top: 10px;">
+              <span>System Prompt</span>
+              <code x-text="truncate(systemPrompt, 50)"></code>
+            </div>
+            <div class="lesson-setup-row">
+              <span>启用工具</span>
+              <code x-text="enabledTools.length ? enabledTools.join(', ') : '（无）'"></code>
+            </div>
+            <div class="lesson-setup-row">
+              <span>Max Steps</span>
+              <code x-text="maxSteps"></code>
+            </div>
+          </details>
+        </div>
+      </template>
+
+      <template x-if="!currentLesson">
+        <div class="text-center text-gray-400 text-sm py-8">
+          正在加载关卡...
+        </div>
+      </template>
+    </div>
+
+    <!-- 自由模式: 配置面板 -->
+    <div x-show="mode === 'free'" class="bg-white rounded-lg border border-gray-200 p-4 flex-1 overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <div>
           <div class="section-kicker">Control Plane</div>
-          <h2 class="panel-title text-lg">配置</h2>
+          <h2 class="panel-title text-lg" x-text="{ config: '配置', tools: '工具', eval: '评估' }[leftTab]"></h2>
         </div>
         <div class="metric-chip text-[11px]">
           <span class="font-mono" x-text="enabledTools.length"></span>/<span class="font-mono" x-text="allTools().length"></span> tools
         </div>
       </div>
 
+      <div class="side-tabs">
+        <button @click="leftTab = 'config'" :class="{ active: leftTab === 'config' }">Config</button>
+        <button @click="leftTab = 'tools'" :class="{ active: leftTab === 'tools' }">Tools</button>
+        <button @click="leftTab = 'eval'" :class="{ active: leftTab === 'eval' }">Eval</button>
+      </div>
+
       <!-- System Prompt -->
-      <div class="mb-4">
+      <div x-show="leftTab === 'config'" class="mb-4">
         <div class="flex items-center justify-between mb-1">
           <label class="section-kicker">System Prompt</label>
           <div class="flex gap-1">
@@ -368,8 +1334,32 @@
         <p class="text-[11px] text-gray-400 mt-1">修改后,下次运行生效(不影响当前会话已有历史)</p>
       </div>
 
+      <!-- Mass 产品模板 -->
+      <div x-show="leftTab === 'eval'" class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <label class="section-kicker">Mass Scenario</label>
+          <span class="text-[10px] text-gray-500">业务模板</span>
+        </div>
+        <template x-for="tpl in massTemplates" :key="tpl.id">
+          <button @click="applyMassTemplate(tpl)"
+                  class="eval-card block w-full text-left text-xs mb-2"
+                  :class="{ 'active': activeMassTemplateId === tpl.id }">
+            <div class="flex items-center justify-between gap-2">
+              <div class="font-semibold text-gray-900" x-text="tpl.title"></div>
+              <span class="badge bg-cyan-100 text-cyan-700" x-text="(tpl.custom_tools?.length || 0) + ' tools'"></span>
+            </div>
+            <div class="text-gray-500 mt-1" x-text="tpl.subtitle"></div>
+            <div class="flex flex-wrap gap-1 mt-2">
+              <template x-for="m in tpl.metrics" :key="m">
+                <span class="text-[10px] px-1.5 py-0.5 border border-stone-300 text-gray-500" x-text="m"></span>
+              </template>
+            </div>
+          </button>
+        </template>
+      </div>
+
       <!-- 工具勾选 -->
-      <div class="mb-4">
+      <div x-show="leftTab === 'tools'" class="mb-4">
         <div class="flex items-center justify-between mb-2">
           <label class="section-kicker">工具实验室</label>
           <button @click="startNewTool()"
@@ -378,15 +1368,8 @@
           </button>
         </div>
         <div class="text-[11px] text-gray-500 mb-2">
-          内置工具是真实执行；自定义工具会作为 mock tool 进入模型 tools schema,用于观察命名、描述和参数结构如何影响模型选择。
+          每个启用的工具可单独决定 <b>真实执行</b>（内置工具实跑 / mock 工具走模板）或 <b>人工返回</b>（暂停由你填 observation）。
         </div>
-        <label class="flex items-start gap-2 text-xs border border-stone-300 rounded px-2 py-2 bg-stone-50 mb-3">
-          <input type="checkbox" x-model="manualToolMode" class="mt-0.5" />
-          <span>
-            <span class="font-semibold text-gray-800">人工接管工具返回</span>
-            <span class="block text-gray-500 mt-0.5">模型决定调用工具后先暂停,由你填写或修改工具 observation,再继续观察模型响应。</span>
-          </span>
-        </label>
 
         <div x-show="editingTool" class="mt-3 border border-stone-300 rounded p-3 bg-stone-50">
           <div class="flex items-center justify-between mb-2">
@@ -447,6 +1430,7 @@
               <div class="flex items-start gap-2">
                 <label class="flex-1 cursor-pointer min-w-0">
                   <input type="checkbox" :value="t.name" x-model="enabledTools"
+                         @change="onToolToggled(t.name)"
                          class="mt-0.5 mr-2" />
                   <span class="font-mono font-medium text-gray-800 break-all" x-text="t.name"></span>
                   <span class="badge ml-1"
@@ -454,19 +1438,33 @@
                         x-text="t.source === 'custom' ? 'mock' : 'built-in'"></span>
                   <div class="tool-description text-gray-500 mt-0.5" :title="t.description" x-text="t.description"></div>
                 </label>
-                <div class="flex gap-1 shrink-0">
-                  <button @click="duplicateTool(t)"
-                          class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-white">
-                    复制
+                <div class="flex flex-col items-end gap-1 shrink-0">
+                  <!-- 模式切换：仅在工具勾选后显示 -->
+                  <button x-show="enabledTools.includes(t.name)"
+                          @click.stop="toggleManualTool(t.name)"
+                          class="text-[10px] px-2 py-0.5 rounded border font-medium"
+                          :class="manualTools.includes(t.name)
+                                  ? 'bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100'
+                                  : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-white'"
+                          :title="manualTools.includes(t.name)
+                                  ? '当前：人工返回（点击切回真实执行）'
+                                  : '当前：真实执行（点击切换为人工返回）'">
+                    <span x-text="manualTools.includes(t.name) ? '✋ 人工' : '🤖 真实'"></span>
                   </button>
-                  <button x-show="t.source === 'custom'" @click="editTool(t)"
-                          class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-white">
-                    编辑
-                  </button>
-                  <button x-show="t.source === 'custom'" @click="deleteCustomTool(t.name)"
-                          class="text-[10px] px-2 py-0.5 rounded border border-red-200 text-red-700 hover:bg-red-50">
-                    删除
-                  </button>
+                  <div class="flex gap-1">
+                    <button @click="duplicateTool(t)"
+                            class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-white">
+                      复制
+                    </button>
+                    <button x-show="t.source === 'custom'" @click="editTool(t)"
+                            class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-white">
+                      编辑
+                    </button>
+                    <button x-show="t.source === 'custom'" @click="deleteCustomTool(t.name)"
+                            class="text-[10px] px-2 py-0.5 rounded border border-red-200 text-red-700 hover:bg-red-50">
+                      删除
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -475,7 +1473,7 @@
       </div>
 
       <!-- MAX_STEPS -->
-      <div class="mb-4">
+      <div x-show="leftTab === 'config'" class="mb-4">
         <label class="section-kicker block mb-1">
           MAX_STEPS: <span class="font-mono" x-text="maxSteps"></span>
         </label>
@@ -483,14 +1481,40 @@
         <p class="text-[11px] text-gray-400 mt-1">循环上限,防止 agent 死循环烧钱</p>
       </div>
 
+      <!-- Eval Suite -->
+      <div x-show="leftTab === 'eval'" class="mb-4 border-t pt-3">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <div class="section-kicker">Eval Suite</div>
+            <div class="text-[11px] text-gray-500">选择用例后运行,右侧 Diagnosis 自动对照预期工具链。</div>
+          </div>
+          <span class="metric-chip text-[11px]">
+            <span x-text="benchmarkCases.length"></span> cases
+          </span>
+        </div>
+        <template x-for="b in benchmarkCases" :key="b.id">
+          <button @click="loadBenchmarkCase(b)"
+                  class="eval-card block w-full text-left text-xs mb-2"
+                  :class="{ 'active': activeBenchmarkId === b.id }">
+            <div class="flex items-center justify-between gap-2">
+              <div class="font-semibold text-gray-900" x-text="b.title"></div>
+              <span class="text-[10px] text-gray-500">max <span x-text="b.max_steps"></span></span>
+            </div>
+            <div class="text-gray-500 mt-1" x-text="b.user_input"></div>
+            <div class="font-mono text-[10px] text-gray-400 mt-1" x-text="'expect: ' + b.expected_tools.join(' → ')"></div>
+          </button>
+        </template>
+      </div>
+
       <!-- 清空会话 -->
       <button @click="resetSession()"
+              x-show="leftTab === 'config'"
               class="w-full text-xs bg-gray-900 hover:bg-black text-stone-50 py-2 rounded font-semibold">
         清空会话历史
       </button>
 
       <!-- 帮助示例 -->
-      <div class="mt-5 border-t pt-3">
+      <div x-show="leftTab === 'config'" class="mt-5 border-t pt-3">
         <div class="section-kicker mb-2">示例任务</div>
         <template x-for="(ex, i) in examples" :key="i">
           <button @click="userInput = ex.text"
@@ -512,8 +1536,17 @@
           <div class="section-kicker">Conversation</div>
           <h2 class="panel-title">对话</h2>
         </div>
-        <div class="metric-chip text-xs text-gray-600">
-          消息数: <span class="font-mono" x-text="history.length + (isRunning ? 1 : 0)"></span>
+        <div class="flex items-center gap-2">
+          <div class="metric-chip text-xs text-gray-600">
+            消息数: <span class="font-mono" x-text="history.length + (isRunning ? 1 : 0)"></span>
+          </div>
+          <button @click="resetSession()"
+                  :disabled="isRunning"
+                  class="text-[11px] px-2 py-1 rounded border border-stone-300 bg-white hover:bg-stone-100
+                         text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  title="清空当前 messages 列表，开始新一轮会话">
+            🗑 清空会话
+          </button>
         </div>
       </div>
 
@@ -659,6 +1692,9 @@
                 <button @click="inspectorView = 'messages'"
                         :class="inspectorView === 'messages' ? 'bg-gray-900 text-stone-50' : 'bg-gray-100 text-gray-600'"
                         class="text-[11px] px-2 py-0.5 rounded">Messages</button>
+                <button @click="inspectorView = 'diagnosis'"
+                        :class="inspectorView === 'diagnosis' ? 'bg-gray-900 text-stone-50' : 'bg-gray-100 text-gray-600'"
+                        class="text-[11px] px-2 py-0.5 rounded">Diagnosis</button>
               </div>
               <div x-show="inspectorView === 'trace'" class="flex gap-1">
                 <button @click="timelineFilter = 'all'"
@@ -712,6 +1748,44 @@
               <pre class="console-slab rounded p-3" x-text="JSON.stringify(history, null, 2)"></pre>
             </div>
           </div>
+
+          <div x-show="inspectorView === 'diagnosis'" class="flex-1 overflow-y-auto pr-1">
+            <div class="diagnostic-grid mb-3">
+              <template x-for="m in runDiagnosis().metrics" :key="m.label">
+                <div class="diagnostic-metric">
+                  <div class="label" x-text="m.label"></div>
+                  <div class="value" x-text="m.value"></div>
+                </div>
+              </template>
+            </div>
+
+            <div x-show="activeBenchmark()" class="diagnostic-signal mb-3"
+                 :class="runDiagnosis().benchmark?.ok ? 'ok' : ''">
+              <div class="section-kicker mb-1">Benchmark Check</div>
+              <div class="text-sm font-semibold text-gray-900" x-text="activeBenchmark()?.title"></div>
+              <div class="text-xs text-gray-500 mt-1" x-text="runDiagnosis().benchmark?.summary"></div>
+              <div class="font-mono text-[10px] text-gray-400 mt-2"
+                   x-text="'expected: ' + (activeBenchmark()?.expected_tools || []).join(' → ')"></div>
+              <div class="font-mono text-[10px] text-gray-400"
+                   x-text="'actual: ' + (runDiagnosis().tools.length ? runDiagnosis().tools.join(' → ') : 'none')"></div>
+            </div>
+
+            <div class="section-kicker mb-2">Failure Attribution</div>
+            <template x-for="s in runDiagnosis().signals" :key="s.code + s.evidence">
+              <div class="diagnostic-signal mb-2" :class="s.severity === 'high' ? 'severe' : (s.severity === 'ok' ? 'ok' : '')">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="font-semibold text-sm text-gray-900" x-text="s.label"></div>
+                  <span class="badge" :class="s.severity === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'"
+                        x-text="s.code"></span>
+                </div>
+                <div class="text-xs text-gray-500 mt-1" x-text="s.evidence"></div>
+                <div class="text-[11px] text-gray-400 mt-2" x-text="'优化建议: ' + s.fix"></div>
+              </div>
+            </template>
+            <div x-show="runDiagnosis().signals.length === 0" class="diagnostic-signal ok text-xs text-gray-500">
+              当前没有明显失败信号。运行一个 Eval case 后,这里会自动对照预期工具链和成本风险。
+            </div>
+          </div>
         </div>
       </div>
 
@@ -748,6 +1822,7 @@ function agentPlayground() {
     backendUrl: 'http://127.0.0.1:8000',
     backendOnline: false,
     modelOverride: '',   // 空 = 用后端 .env 默认 endpoint
+    leftTab: 'config',
     systemPrompt: `你是一个助手,可以使用提供的工具完成任务。
 
 工作原则:
@@ -767,8 +1842,25 @@ function agentPlayground() {
       parametersText: '',
       response_template: '',
     },
-    manualToolMode: false,
+    manualTools: [],     // enabledTools 的子集；命中的工具暂停由用户填 observation
     maxSteps: 10,
+
+    // ========== 课程模式状态 ==========
+    mode: 'lesson',                  // 'lesson' | 'free'
+    lessons: [],                     // 后端 /api/lessons 返回
+    currentLessonId: null,
+    lessonStepIdx: 0,
+    lessonMenuOpen: false,
+    completedLessons: [],
+    lessonComplete: false,           // 走完最后一步后才置 true
+    showLessonExplanation: false,
+
+    // ========== Eval / Mass 产品化能力 ==========
+    benchmarkCases: [],
+    massTemplates: [],
+    failureTaxonomy: [],
+    activeBenchmarkId: null,
+    activeMassTemplateId: null,
 
     // ========== 运行时状态 ==========
     userInput: '',
@@ -845,15 +1937,20 @@ function agentPlayground() {
 
     async init() {
       // 从 localStorage 恢复上次填的 endpoint / backend url(不会存 key)
-      const savedBackend = localStorage.getItem('agent_pg_backend');
-      const savedModel   = localStorage.getItem('agent_pg_model');
-      const savedTools   = localStorage.getItem('agent_pg_custom_tools');
-      const savedManual  = localStorage.getItem('agent_pg_manual_tool_mode');
-      if (savedBackend) this.backendUrl = savedBackend;
+      const queryBackend = new URLSearchParams(window.location.search).get('backend');
+      const savedBackend     = localStorage.getItem('agent_pg_backend');
+      const savedModel       = localStorage.getItem('agent_pg_model');
+      const savedTools       = localStorage.getItem('agent_pg_custom_tools');
+      const savedManualTools = localStorage.getItem('agent_pg_manual_tools');
+      // 旧版本的全局开关 agent_pg_manual_tool_mode 已移除,直接忽略
+      if (queryBackend) this.backendUrl = queryBackend;
+      else if (savedBackend) this.backendUrl = savedBackend;
       if (savedModel)   this.modelOverride = savedModel;
-      if (savedManual)  this.manualToolMode = savedManual === 'true';
       if (savedTools) {
         try { this.customTools = JSON.parse(savedTools); } catch(e) { this.customTools = []; }
+      }
+      if (savedManualTools) {
+        try { this.manualTools = JSON.parse(savedManualTools); } catch(e) { this.manualTools = []; }
       }
 
       // 恢复上次会话（timeline 只展开最后一条，避免全部撑开）
@@ -869,7 +1966,9 @@ function agentPlayground() {
       // 持久化 config
       this.$watch('backendUrl',    v => localStorage.setItem('agent_pg_backend', v));
       this.$watch('modelOverride', v => localStorage.setItem('agent_pg_model', v));
-      this.$watch('manualToolMode', v => localStorage.setItem('agent_pg_manual_tool_mode', String(v)));
+      this.$watch('manualTools', v => {
+        try { localStorage.setItem('agent_pg_manual_tools', JSON.stringify(v)); } catch(e){}
+      });
       this.$watch('customTools', v => {
         try { localStorage.setItem('agent_pg_custom_tools', JSON.stringify(v)); } catch(e){}
       });
@@ -880,6 +1979,33 @@ function agentPlayground() {
 
       await this.checkHealth();
       await this.loadTools();
+      await this.loadLessons();
+      await this.loadEvalAssets();
+
+      // 恢复完成关卡列表
+      try {
+        const c = localStorage.getItem('agent_pg_completed');
+        if (c) this.completedLessons = JSON.parse(c) || [];
+      } catch (e) {}
+
+      // 决定默认模式：曾访问过的人尊重其上次选择，新访客 → 课程模式
+      const savedMode   = localStorage.getItem('agent_pg_mode');
+      const savedLesson = localStorage.getItem('agent_pg_lesson');
+      const isReturning = !!(savedMode || this.history.length || savedLesson);
+      this.mode = savedMode || (isReturning ? 'free' : 'lesson');
+
+      if (this.mode === 'lesson' && this.lessons.length) {
+        // 优先恢复上次的关卡，否则从第一关开始
+        const target = this.lessons.find(l => l.id === savedLesson) || this.lessons[0];
+        // 注意：enterLesson 会 resetSession（清掉刚刚 restore 的 history）
+        // 只有当：用户显式选了课程 + 没有进行中会话时才自动进入
+        if (!this.history.length) {
+          this.enterLesson(target.id);
+        } else {
+          this.currentLessonId = target.id;
+        }
+      }
+
       this.initChart();
       if (this.tokenData.length) this.updateChart();
       setInterval(() => this.checkHealth(), 10000);
@@ -900,6 +2026,19 @@ function agentPlayground() {
       } catch (e) {
         console.warn('加载工具失败:', e);
       }
+    },
+
+    // 切换某个工具的"真实/人工"模式
+    toggleManualTool(name) {
+      if (!this.enabledTools.includes(name)) return;  // 未启用,无意义
+      const i = this.manualTools.indexOf(name);
+      if (i >= 0) this.manualTools.splice(i, 1);
+      else        this.manualTools.push(name);
+    },
+
+    // 工具勾选状态变化时,把已被取消的工具从 manualTools 清理掉
+    onToolToggled(_name) {
+      this.manualTools = this.manualTools.filter(n => this.enabledTools.includes(n));
     },
 
     allTools() {
@@ -936,12 +2075,14 @@ function agentPlayground() {
     },
 
     startNewTool() {
+      this.leftTab = 'tools';
       this.toolEditorError = '';
       this.toolDraft = this.emptyToolDraft();
       this.editingTool = true;
     },
 
     editTool(tool) {
+      this.leftTab = 'tools';
       this.toolEditorError = '';
       this.toolDraft = {
         originalName: tool.name,
@@ -954,6 +2095,7 @@ function agentPlayground() {
     },
 
     duplicateTool(tool) {
+      this.leftTab = 'tools';
       this.toolEditorError = '';
       const baseName = `${tool.name}_mock`.replace(/[^A-Za-z0-9_]/g, '_').slice(0, 64);
       this.toolDraft = {
@@ -1163,7 +2305,7 @@ function agentPlayground() {
         system_prompt: this.systemPrompt,
         enabled_tools: this.enabledTools,
         custom_tools: this.customTools,
-        manual_tool_mode: this.manualToolMode,
+        manual_tools: this.manualTools,
         max_steps: this.maxSteps,
         history: this.history,
         model_override: this.modelOverride.trim() || null,
@@ -1211,7 +2353,7 @@ function agentPlayground() {
         tool_result: result,
         enabled_tools: this.enabledTools,
         custom_tools: this.customTools,
-        manual_tool_mode: this.manualToolMode,
+        manual_tools: this.manualTools,
         max_steps: this.maxSteps,
         history: this.history,
         model_override: this.modelOverride.trim() || null,
@@ -1324,6 +2466,139 @@ function agentPlayground() {
       localStorage.removeItem('agent_pg_tokendata');
     },
 
+    // ========== 课程模式逻辑 ==========
+    async loadLessons() {
+      try {
+        const r = await fetch(this.backendUrl + '/api/lessons');
+        const j = await r.json();
+        this.lessons = (j.lessons || []).slice().sort((a, b) => a.order - b.order);
+      } catch (e) {
+        console.warn('加载关卡失败:', e);
+        this.lessons = [];
+      }
+    },
+
+    async loadEvalAssets() {
+      try {
+        const r = await fetch(this.backendUrl + '/api/eval-assets');
+        const j = await r.json();
+        this.benchmarkCases = j.benchmarks || [];
+        this.massTemplates = j.mass_templates || [];
+        this.failureTaxonomy = j.failure_taxonomy || [];
+      } catch (e) {
+        console.warn('加载评估资产失败:', e);
+        this.benchmarkCases = [];
+        this.massTemplates = [];
+        this.failureTaxonomy = [];
+      }
+    },
+
+    applyMassTemplate(tpl) {
+      if (!tpl) return;
+      this.leftTab = 'eval';
+      this.activeMassTemplateId = tpl.id;
+      this.activeBenchmarkId = null;
+      this.systemPrompt = tpl.system_prompt || this.systemPrompt;
+      this.customTools = (tpl.custom_tools || []).map(t => JSON.parse(JSON.stringify(t)));
+      this.enabledTools = (tpl.enabled_tools || []).slice();
+      this.manualTools = (tpl.manual_tools || []).slice();
+      this.maxSteps = Math.max(this.maxSteps, 8);
+      this.resetSession();
+      const firstPrompt = tpl.example_prompts?.[0];
+      if (firstPrompt) this.userInput = firstPrompt;
+      this.inspectorView = 'diagnosis';
+    },
+
+    loadBenchmarkCase(b) {
+      if (!b) return;
+      this.leftTab = 'eval';
+      this.activeBenchmarkId = b.id;
+      this.userInput = b.user_input;
+      this.maxSteps = b.max_steps || this.maxSteps;
+      this.enabledTools = Array.from(new Set([
+        ...this.enabledTools,
+        ...(b.expected_tools || []),
+      ]));
+      this.resetSession();
+      this.inspectorView = 'diagnosis';
+    },
+
+    activeBenchmark() {
+      return this.benchmarkCases.find(b => b.id === this.activeBenchmarkId) || null;
+    },
+
+    get currentLesson() {
+      return this.lessons.find(l => l.id === this.currentLessonId) || null;
+    },
+
+    get lockedConfig() {
+      return this.currentLesson?.locked_config || {};
+    },
+
+    setMode(m) {
+      if (m === this.mode) return;
+      this.mode = m;
+      localStorage.setItem('agent_pg_mode', m);
+      if (m === 'lesson' && !this.currentLessonId && this.lessons.length) {
+        this.enterLesson(this.lessons[0].id);
+      }
+    },
+
+    enterLesson(id) {
+      const lesson = this.lessons.find(l => l.id === id);
+      if (!lesson) return;
+      this.currentLessonId = id;
+      this.lessonStepIdx = 0;
+      this.lessonComplete = false;
+      this.showLessonExplanation = false;
+      localStorage.setItem('agent_pg_lesson', id);
+
+      // 灌入 preset_config
+      const p = lesson.preset_config || {};
+      if (typeof p.system_prompt === 'string') this.systemPrompt = p.system_prompt;
+      if (Array.isArray(p.enabled_tools))      this.enabledTools = p.enabled_tools.slice();
+      if (Array.isArray(p.custom_tools))       this.customTools = p.custom_tools.slice();
+      if (Array.isArray(p.manual_tools))       this.manualTools = p.manual_tools.slice();
+      if (typeof p.max_steps === 'number')     this.maxSteps = p.max_steps;
+
+      // 进入新关卡 = 一次干净开始
+      this.resetSession();
+    },
+
+    nextLessonStep() {
+      const lesson = this.currentLesson;
+      if (!lesson) return;
+      if (this.lessonStepIdx < (lesson.task_steps?.length || 0) - 1) {
+        this.lessonStepIdx += 1;
+      } else {
+        this.finishLesson();
+      }
+    },
+
+    finishLesson() {
+      if (this.currentLessonId && !this.completedLessons.includes(this.currentLessonId)) {
+        this.completedLessons.push(this.currentLessonId);
+        try {
+          localStorage.setItem('agent_pg_completed', JSON.stringify(this.completedLessons));
+        } catch (e) {}
+      }
+      this.lessonComplete = true;
+    },
+
+    goToNextLesson() {
+      const idx = this.lessons.findIndex(l => l.id === this.currentLessonId);
+      const next = this.lessons[idx + 1];
+      if (next) {
+        this.enterLesson(next.id);
+      } else {
+        // 没有下一关 → 切到自由模式
+        this.setMode('free');
+      }
+    },
+
+    isLessonStepCurrent(i) { return i === this.lessonStepIdx; },
+    isLessonStepDone(i)    { return i <  this.lessonStepIdx; },
+
     cancelRun() {
       if (this.abortController) this.abortController.abort();
     },
@@ -1337,6 +2612,37 @@ function agentPlayground() {
       return s.length > n ? s.slice(0, n) + '...' : s;
     },
 
+    // 极简 markdown 渲染（仅供 lesson 解读浮层用）
+    renderMarkdown(md) {
+      if (!md) return '';
+      const escape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      let html = '';
+      const lines = md.split('\n');
+      let inOl = false;
+      for (const raw of lines) {
+        const line = escape(raw);
+        if (/^##\s+/.test(line)) {
+          if (inOl) { html += '</ol>'; inOl = false; }
+          html += `<h2>${line.replace(/^##\s+/, '')}</h2>`;
+        } else if (/^\d+\.\s+/.test(line)) {
+          if (!inOl) { html += '<ol>'; inOl = true; }
+          html += `<li>${line.replace(/^\d+\.\s+/, '')}</li>`;
+        } else if (line.trim() === '') {
+          if (inOl) { html += '</ol>'; inOl = false; }
+        } else {
+          if (inOl) { html += '</ol>'; inOl = false; }
+          html += `<p>${line}</p>`;
+        }
+      }
+      if (inOl) html += '</ol>';
+      // **bold** / *italic*
+      html = html
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+?)`/g, '<code>$1</code>');
+      return html;
+    },
+
     scrollChatBottom() {
       this.$nextTick(() => {
         const box = this.$refs.chatBox;
@@ -1348,6 +2654,91 @@ function agentPlayground() {
         const box = this.$refs.timelineBox;
         if (box) box.scrollTop = box.scrollHeight;
       });
+    },
+
+    runDiagnosis() {
+      const llmEvents = this.timeline.filter(e => e.event === 'llm_response');
+      const toolCallEvents = this.timeline.filter(e => e.event === 'tool_call');
+      const toolResultEvents = this.timeline.filter(e => e.event === 'tool_result');
+      const terminal = this.timeline.some(e => ['final_answer', 'max_steps', 'error'].includes(e.event));
+      const tools = toolCallEvents.map(e => e.data?.tool).filter(Boolean);
+      const totalLatency = llmEvents.reduce((s, e) => s + (Number(e.data?.latency_s) || 0), 0);
+      const signals = [];
+      const tax = (code) => this.failureTaxonomy.find(t => t.code === code) || { code, label: code, fix: '检查 trace,补充评估用例。' };
+      const pushSignal = (code, severity, evidence) => {
+        if (signals.some(s => s.code === code && s.evidence === evidence)) return;
+        const t = tax(code);
+        signals.push({ code, severity, label: t.label, fix: t.fix, evidence });
+      };
+
+      for (const e of this.timeline.filter(e => e.event === 'error')) {
+        pushSignal('loop_or_budget', 'high', e.data?.error || '运行时错误。');
+      }
+      if (this.timeline.some(e => e.event === 'max_steps')) {
+        pushSignal('loop_or_budget', 'high', 'Agent 触达 max_steps 仍未完成,可能存在循环或预算失控。');
+      }
+      for (const e of toolCallEvents) {
+        const status = e.data?.status;
+        if (['arg_parse_error', 'exec_error'].includes(status)) {
+          pushSignal('bad_arguments', 'high', `${e.data?.tool || 'tool'} 返回 ${status}。`);
+        }
+        if (status === 'unknown_tool') {
+          pushSignal('wrong_tool', 'high', `模型请求了未注册工具 ${e.data?.tool}。`);
+        }
+      }
+      for (const e of toolResultEvents) {
+        const result = String(e.data?.result || '');
+        if (/越界|禁止访问|权限|policy|unsafe/i.test(result)) {
+          pushSignal('safety_boundary', 'medium', `${e.data?.tool || 'tool'} 触发安全边界: ${this.truncate(result, 80)}`);
+        } else if (/失败|错误|不存在|异常|非法|invalid|error/i.test(result)) {
+          pushSignal('tool_observation_error', 'medium', `${e.data?.tool || 'tool'} 返回异常 observation: ${this.truncate(result, 80)}`);
+        }
+      }
+
+      const seenCalls = {};
+      for (const e of toolCallEvents) {
+        const key = `${e.data?.tool}:${JSON.stringify(e.data?.args || {})}`;
+        seenCalls[key] = (seenCalls[key] || 0) + 1;
+      }
+      for (const [key, count] of Object.entries(seenCalls)) {
+        if (count > 1) {
+          pushSignal('loop_or_budget', 'medium', `重复调用 ${key} 共 ${count} 次。`);
+        }
+      }
+
+      let benchmark = null;
+      const active = this.activeBenchmark();
+      if (active) {
+        const missing = (active.expected_tools || []).filter(t => !tools.includes(t));
+        const unexpected = tools.filter(t => !(active.expected_tools || []).includes(t));
+        if (terminal && missing.length) {
+          pushSignal('tool_not_called', 'high', `Benchmark 缺少预期工具: ${missing.join(', ')}。`);
+        }
+        if (terminal && unexpected.length && active.expected_tools?.length) {
+          pushSignal('wrong_tool', 'medium', `Benchmark 出现预期外工具: ${unexpected.join(', ')}。`);
+        }
+        const serious = signals.some(s => s.severity === 'high');
+        benchmark = {
+          ok: terminal && missing.length === 0 && !serious,
+          summary: !terminal
+            ? '等待运行完成后给出启发式判断。'
+            : (missing.length === 0 && !serious
+                ? '工具链符合预期,未发现高危失败信号。'
+                : '工具链或运行稳定性存在风险,见下方归因。'),
+        };
+      }
+
+      return {
+        tools,
+        benchmark,
+        metrics: [
+          { label: 'LLM Steps', value: String(llmEvents.length) },
+          { label: 'Tool Calls', value: String(toolCallEvents.length) },
+          { label: 'Tokens', value: String(this.totalTokens) },
+          { label: 'Latency', value: totalLatency ? `${totalLatency.toFixed(1)}s` : '0s' },
+        ],
+        signals,
+      };
     },
 
     eventColor(ev) {
