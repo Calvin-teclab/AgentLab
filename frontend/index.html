@@ -106,7 +106,7 @@
     box-shadow: none !important;
     border-radius: 0 !important;
   }
-  .bg-stone-50, .bg-stone-100 { background: var(--surface-2) !important; }
+  .bg-stone-50, .bg-stone-100, .bg-stone-200 { background: var(--surface-2) !important; }
   .bg-gray-50, .bg-gray-100  { background: var(--surface-2) !important; }
 
   .text-gray-900, .text-gray-800 { color: var(--ink) !important; }
@@ -114,6 +114,7 @@
   .text-gray-500, .text-gray-400 { color: var(--ink-3) !important; }
   .text-gray-300                 { color: var(--ink-4) !important; }
   .text-stone-50                 { color: var(--canvas) !important; }
+  .text-stone-600, .text-stone-700 { color: var(--ink-2) !important; }
 
   .border, .border-gray-200, .border-stone-200, .border-stone-300,
   .border-gray-300, .border-stone-100 {
@@ -143,10 +144,10 @@
   .text-green-600, .text-green-700 { color: var(--ok) !important; }
   .border-green-200 { border-color: rgba(110, 231, 183, .25) !important; }
 
-  .bg-red-50, .bg-red-100 {
+  .bg-red-50, .bg-red-100, .bg-red-200 {
     background: rgba(252, 165, 165, .08) !important;
   }
-  .text-red-600, .text-red-700 { color: var(--err) !important; }
+  .text-red-600, .text-red-700, .text-red-800 { color: var(--err) !important; }
   .border-red-200 { border-color: rgba(252, 165, 165, .25) !important; }
   .hover\:bg-red-50:hover { background: rgba(252, 165, 165, .12) !important; }
 
@@ -164,6 +165,38 @@
     color: var(--ink-4) !important;
   }
 
+  /* Info hint trigger in topbar (replaces the old safety-strip ribbon) */
+  .info-hint > summary.info-trigger {
+    list-style: none;
+    cursor: pointer;
+    width: 22px; height: 22px;
+    display: inline-grid; place-items: center;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 0;
+    background: transparent;
+    transition: color .15s, border-color .15s;
+    user-select: none;
+  }
+  .info-hint > summary.info-trigger::-webkit-details-marker { display: none; }
+  .info-hint > summary.info-trigger:hover {
+    color: var(--signal);
+    border-color: var(--signal-line);
+  }
+  .info-hint[open] > summary.info-trigger {
+    color: var(--signal);
+    border-color: var(--signal-line);
+  }
+  .info-hint .section-kicker { font-size: 9.5px; }
+  .info-hint code {
+    background: var(--surface);
+    color: var(--signal);
+    border: 1px solid var(--line-strong);
+    font-size: 10.5px;
+  }
+
   /* =====================================================
      Topbar — tonal split, hairline scan
      ===================================================== */
@@ -172,6 +205,7 @@
     backdrop-filter: blur(28px) saturate(140%);
     border-bottom: 1px solid var(--line);
     position: relative;
+    z-index: 60;
   }
   .app-topbar::after {
     content: "";
@@ -182,7 +216,7 @@
   }
 
   .brand-mark {
-    width: 38px; height: 38px;
+    width: 30px; height: 30px;
     display: grid; place-items: center;
     border-radius: 0;
     background: transparent;
@@ -190,10 +224,10 @@
     border: 1px solid var(--signal-line);
     font-family: var(--mono);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 10.5px;
     letter-spacing: .04em;
     position: relative;
-    box-shadow: inset 0 0 0 1px rgba(255,176,46,.04), 0 0 28px -8px var(--signal-glow);
+    box-shadow: inset 0 0 0 1px rgba(255,176,46,.04), 0 0 24px -8px var(--signal-glow);
   }
   /* Viewfinder ticks on brand */
   .brand-mark::before, .brand-mark::after {
@@ -206,53 +240,49 @@
 
   .app-title {
     font-family: var(--serif);
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 400;
     letter-spacing: -0.015em;
     line-height: 1;
-    font-variation-settings: "opsz" 36, "SOFT" 30, "WONK" 0;
+    font-variation-settings: "opsz" 28, "SOFT" 30, "WONK" 0;
     color: var(--ink);
   }
 
   .app-subtitle {
     font-family: var(--mono);
     color: var(--ink-3);
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 400;
     letter-spacing: .22em;
     text-transform: uppercase;
-    margin-top: 2px;
+    margin-top: 1px;
   }
 
-  /* =====================================================
-     Safety strip — dense tech ribbon
-     ===================================================== */
-  .safety-strip {
-    background: var(--surface-2);
-    color: var(--ink-3);
-    border-bottom: 1px solid var(--line);
-    border-top: none;
+  /* 顶部通知 banner —— position absolute,不挤压 main 高度,12s 后自动消失 */
+  .notification-banner {
+    position: absolute;
+    top: 49px;   /* 紧贴 topbar 下沿(header ~48 + 1px hairline) */
+    left: 0; right: 0;
+    background: rgba(20, 20, 24, .92);
+    backdrop-filter: blur(8px) saturate(140%);
+    border-bottom: 1px solid rgba(255, 176, 46, .55);
     font-family: var(--mono);
-    font-size: 10.5px;
-    letter-spacing: .04em;
-    line-height: 1.5;
-    position: relative;
+    z-index: 55;
+    animation: bannerSlide .25s ease both;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
   }
-  .safety-strip b {
-    color: var(--signal);
-    font-weight: 500;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    font-size: 10px;
-    margin-right: 6px;
+  .notification-banner .text-amber-700 { color: var(--signal); }
+  .notification-banner .text-gray-500 { color: var(--ink-3); }
+  .notification-banner .text-gray-400 { color: var(--ink-4); }
+  .notification-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--signal);
+    box-shadow: 0 0 6px rgba(255, 176, 46, .8);
+    flex-shrink: 0;
   }
-  .safety-strip code {
-    background: var(--surface);
-    color: var(--signal);
-    border: 1px solid var(--line-strong);
-    border-radius: 0;
-    padding: 1px 6px;
-    font-size: 10.5px;
+  @keyframes bannerSlide {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* =====================================================
@@ -343,6 +373,8 @@
     accent-color: var(--signal);
     background: transparent;
   }
+
+  [x-cloak] { display: none !important; }
 
   .card-hover {
     transition: border-color .2s ease, background .2s ease;
@@ -622,6 +654,63 @@
     letter-spacing: 0;
   }
 
+  .lesson-selector { z-index: 70; }
+
+  .lesson-menu,
+  .control-popover {
+    background: rgba(16, 18, 24, .98) !important;
+    color: var(--ink);
+    border: 1px solid var(--signal-line) !important;
+    border-radius: 0 !important;
+    box-shadow:
+      0 22px 70px -28px rgba(0, 0, 0, .9),
+      inset 0 1px 0 rgba(236, 229, 211, .04) !important;
+    backdrop-filter: blur(18px) saturate(130%);
+    overflow: hidden;
+  }
+  .lesson-menu::before,
+  .control-popover::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--signal), transparent 78%);
+  }
+  .lesson-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+  }
+  .lesson-menu-item:last-child { border-bottom: none; }
+  .lesson-menu-item:hover { background: rgba(255, 176, 46, .06) !important; }
+  .lesson-menu-title {
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .lesson-menu-subtitle {
+    color: var(--ink-3);
+    font-size: 11px;
+    margin-left: 28px;
+    line-height: 1.45;
+  }
+  .lesson-menu .order-num {
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--signal-line);
+    background: rgba(255, 176, 46, .1);
+    color: var(--signal);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+  }
+
   /* =====================================================
      Lesson card — the centerpiece
      ===================================================== */
@@ -702,6 +791,203 @@
   .lesson-intro strong {
     color: var(--signal);
     font-weight: 500;
+  }
+
+  /* =====================================================
+     ReAct loop progress — cycle pointer badge + capsule chain
+     ===================================================== */
+  .llm-step-progress {
+    padding: 8px 0 10px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 10px;
+  }
+
+  /* Head row: kicker · cycle pointer · counter */
+  .react-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* Top "C-style" cycle pointer badge */
+  .react-cycle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-2);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .cycle-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color .18s;
+  }
+  .cycle-icon {
+    font-size: 8.5px;
+    line-height: 1;
+    color: var(--ink-4);
+    transition: color .18s, text-shadow .18s;
+  }
+  .cycle-node.active { color: var(--signal); }
+  .cycle-node.active .cycle-icon {
+    color: var(--signal);
+    text-shadow: 0 0 6px var(--signal-glow);
+    animation: cyclePulse 1.2s ease-in-out infinite;
+  }
+  @keyframes cyclePulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .5; }
+  }
+  .cycle-link { color: var(--ink-4); font-size: 10px; }
+  .cycle-loopback {
+    color: var(--ink-4);
+    margin-left: 4px;
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  /* Counter */
+  .llm-step-counter {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+    letter-spacing: .04em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+  }
+  .llm-step-counter .val {
+    color: var(--signal);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    min-width: 1.2em;
+    text-align: right;
+  }
+  .llm-step-counter .val.muted { color: var(--ink-3); }
+  .llm-step-counter .sep,
+  .llm-step-counter .max  { color: var(--ink-3); }
+  .llm-step-counter .state {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-3);
+    font-size: 9.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  .llm-step-counter .state.running {
+    color: var(--signal);
+    border-color: var(--signal-line);
+  }
+  .llm-step-counter .state.done {
+    color: var(--ok);
+    border-color: rgba(110, 231, 183, .25);
+  }
+  .llm-step-counter .state.max {
+    color: var(--err);
+    border-color: rgba(252, 165, 165, .25);
+  }
+
+  /* Capsule chain (main view) */
+  .react-chain {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    padding-bottom: 4px;
+  }
+  .react-chain::-webkit-scrollbar { height: 4px; }
+  .react-chain::-webkit-scrollbar-thumb { background: var(--line-strong); }
+  .react-step {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .react-arrow {
+    display: inline-block;
+    color: var(--ink-5);
+    font-size: 11px;
+    padding: 0 2px;
+    line-height: 1;
+    transition: color .18s;
+  }
+  .react-arrow.done    { color: var(--signal-deep); }
+  .react-arrow.current { color: var(--signal); }
+
+  .react-capsule {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    height: 22px;
+    min-width: 24px;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    font-family: var(--mono);
+    color: var(--ink-3);
+    transition: background .18s, border-color .18s, box-shadow .18s;
+    cursor: default;
+  }
+  .react-capsule.done {
+    background: rgba(255, 176, 46, .05);
+    border-color: var(--signal-deep);
+    color: var(--signal-2);
+  }
+  .react-capsule.current {
+    background: rgba(255, 176, 46, .12);
+    border-color: var(--signal);
+    color: var(--signal-2);
+    box-shadow: 0 0 12px var(--signal-glow);
+    animation: capsulePulse 1.4s ease-in-out infinite;
+  }
+  .react-capsule.pending {
+    border-color: var(--line);
+    border-style: dashed;
+    background: transparent;
+    padding: 3px 5px;
+    min-width: 14px;
+  }
+  @keyframes capsulePulse {
+    0%, 100% { box-shadow: 0 0 8px var(--signal-glow); }
+    50%      { box-shadow: 0 0 18px rgba(255, 176, 46, .38); }
+  }
+
+  .bead-row { display: inline-flex; align-items: center; gap: 3px; line-height: 1; }
+  .bead {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 10px; height: 12px;
+    line-height: 1;
+    color: inherit;
+  }
+  .bead-thought::before { content: "●"; font-size: 6.5px; }
+  .bead-action::before  { content: "▲"; font-size: 8px; }
+  .bead-obs::before     { content: "◆"; font-size: 8px; }
+  .bead-final::before   { content: "■"; font-size: 8.5px; color: var(--signal); }
+  .bead-max::before     { content: "▣"; font-size: 9px; color: var(--err); }
+  .bead-arrow {
+    color: var(--ink-4);
+    font-size: 9px;
+    margin: 0 1px;
+    line-height: 1;
+  }
+  .react-capsule.current .bead-thought::before,
+  .react-capsule.current .bead-action::before,
+  .react-capsule.current .bead-obs::before {
+    text-shadow: 0 0 4px var(--signal-glow);
   }
 
   /* =====================================================
@@ -1078,6 +1364,44 @@
     background: var(--signal);
   }
 
+  .tab-cluster {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    max-width: 100%;
+    border: 1px solid var(--line-strong);
+    background: var(--canvas-2);
+    padding: 2px;
+    gap: 2px;
+  }
+  .tab-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    line-height: 1;
+    padding: 6px 9px;
+    min-height: 26px;
+    white-space: nowrap;
+  }
+  .tab-btn:hover {
+    color: var(--ink);
+    background: rgba(236, 229, 211, .04);
+  }
+  .tab-btn.active {
+    background: var(--signal);
+    border-color: var(--signal);
+    color: var(--canvas);
+    box-shadow: 0 0 24px -12px var(--signal);
+  }
+  .tab-btn.compact {
+    font-size: 10px;
+    min-height: 23px;
+    padding: 5px 8px;
+  }
+
   /* =====================================================
      Boot-in motion: staggered fade as a single moment
      ===================================================== */
@@ -1086,16 +1410,15 @@
     to   { opacity: 1; transform: translateY(0); }
   }
   .app-topbar      { animation: bootIn .55s ease both; animation-delay: 0ms; }
-  .safety-strip    { animation: bootIn .55s ease both; animation-delay: 80ms; }
-  #pane-left       { animation: bootIn .55s ease both; animation-delay: 160ms; }
-  #pane-mid        { animation: bootIn .55s ease both; animation-delay: 220ms; }
-  #pane-right      { animation: bootIn .55s ease both; animation-delay: 280ms; }
+  #pane-left       { animation: bootIn .55s ease both; animation-delay: 120ms; }
+  #pane-mid        { animation: bootIn .55s ease both; animation-delay: 180ms; }
+  #pane-right      { animation: bootIn .55s ease both; animation-delay: 240ms; }
   .step-item       { animation: bootIn .45s ease both; }
-  .step-item:nth-child(1) { animation-delay: 320ms; }
-  .step-item:nth-child(2) { animation-delay: 380ms; }
-  .step-item:nth-child(3) { animation-delay: 440ms; }
-  .step-item:nth-child(4) { animation-delay: 500ms; }
-  .step-item:nth-child(5) { animation-delay: 560ms; }
+  .step-item:nth-child(1) { animation-delay: 280ms; }
+  .step-item:nth-child(2) { animation-delay: 340ms; }
+  .step-item:nth-child(3) { animation-delay: 400ms; }
+  .step-item:nth-child(4) { animation-delay: 460ms; }
+  .step-item:nth-child(5) { animation-delay: 520ms; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0ms !important; transition: none !important; }
@@ -1129,7 +1452,7 @@
       x-init="init()">
 
 <!-- ========== 顶部栏 ========== -->
-<header class="app-topbar px-6 py-3 flex items-center justify-between flex-wrap gap-3">
+<header class="app-topbar px-6 py-2 flex items-center justify-between flex-wrap gap-3">
   <div class="flex items-center gap-4">
     <div class="flex items-center gap-3">
       <div class="brand-mark">AP</div>
@@ -1146,37 +1469,65 @@
     </div>
 
     <!-- 关卡选择(仅 lesson mode) -->
-    <div x-show="mode === 'lesson' && lessons.length > 0" class="relative" @click.outside="lessonMenuOpen = false">
+    <div x-show="mode === 'lesson' && lessons.length > 0" x-cloak
+         class="relative lesson-selector" @click.outside="lessonMenuOpen = false">
       <button class="lesson-pill" @click="lessonMenuOpen = !lessonMenuOpen">
         <span class="order-num" x-text="currentLesson?.order ?? '·'"></span>
         <span x-text="currentLesson?.title ?? '选择一关'"></span>
         <span class="text-gray-400" x-text="lessonMenuOpen ? '▴' : '▾'"></span>
       </button>
       <div x-show="lessonMenuOpen" x-transition.opacity
-           class="absolute left-0 mt-2 w-72 bg-white border border-stone-200 rounded-lg shadow-lg overflow-hidden z-50">
+           x-cloak
+           class="lesson-menu absolute left-0 mt-2 w-72 z-[80]">
         <template x-for="l in lessons" :key="l.id">
           <button @click="enterLesson(l.id); lessonMenuOpen = false"
-                  class="block w-full text-left px-4 py-3 hover:bg-stone-50 border-b border-stone-100 last:border-b-0">
+                  class="lesson-menu-item">
             <div class="flex items-center gap-2 mb-0.5">
-              <span class="order-num" style="background: var(--cobalt); color: white;
-                    display: inline-grid; place-items: center; width: 20px; height: 20px;
-                    border-radius: 999px; font-size: 10px; font-weight: 700;"
-                    x-text="l.order"></span>
-              <span class="font-semibold text-sm" x-text="l.title"></span>
+              <span class="order-num" x-text="l.order"></span>
+              <span class="lesson-menu-title" x-text="l.title"></span>
               <span x-show="completedLessons.includes(l.id)" class="text-green-600 text-xs">✓</span>
             </div>
-            <div class="text-xs text-gray-500 ml-7" x-text="l.subtitle"></div>
+            <div class="lesson-menu-subtitle" x-text="l.subtitle"></div>
           </button>
         </template>
+      </div>
+    </div>
+
+    <!-- 场景选择(仅 free mode) —— 跟"关卡 pill"对位、单一职责:切场景 -->
+    <div x-show="mode === 'free' && massTemplates.length > 0" x-cloak
+         class="relative lesson-selector" @click.outside="scenarioMenuOpen = false">
+      <button class="lesson-pill" @click="scenarioMenuOpen = !scenarioMenuOpen">
+        <span class="order-num" x-text="activeMassTemplateId ? '◆' : '+'"></span>
+        <span x-text="activeMassTemplate()?.title || '选择场景'"></span>
+        <span class="text-gray-400" x-text="scenarioMenuOpen ? '▴' : '▾'"></span>
+      </button>
+      <div x-show="scenarioMenuOpen" x-transition.opacity
+           x-cloak
+           class="lesson-menu absolute left-0 mt-2 w-80 z-[80]">
+        <template x-for="tpl in massTemplates" :key="tpl.id">
+          <button @click="applyMassTemplate(tpl); scenarioMenuOpen = false"
+                  class="lesson-menu-item">
+            <div class="flex items-center justify-between gap-2 mb-0.5">
+              <span class="lesson-menu-title" x-text="tpl.title"></span>
+              <span class="badge bg-cyan-100 text-cyan-700 text-[10px]"
+                    x-text="(tpl.custom_tools?.length || 0) + ' tools'"></span>
+            </div>
+            <div class="lesson-menu-subtitle" x-text="tpl.subtitle"></div>
+          </button>
+        </template>
+        <button x-show="activeMassTemplateId" @click="clearMassScenario()"
+                class="lesson-menu-item text-gray-500 italic">
+          <div class="text-xs">清除场景 (回滚到加载前)</div>
+        </button>
       </div>
     </div>
   </div>
 
   <div class="flex items-center gap-3 text-sm flex-wrap justify-end">
     <!-- 高级配置(后端地址 / endpoint),仅 free mode 完整可见 -->
-    <details class="text-xs" x-show="mode === 'free'">
+    <details class="text-xs relative" x-show="mode === 'free'" x-cloak>
       <summary class="cursor-pointer text-gray-500 hover:text-gray-900 select-none">⚙ 后端配置</summary>
-      <div class="absolute right-6 mt-2 bg-white border border-stone-200 rounded-lg shadow-lg p-3 z-50 w-80">
+      <div class="control-popover absolute right-0 mt-2 p-3 z-[80] w-80">
         <label class="section-kicker block mb-1">后端 URL</label>
         <input type="text" x-model="backendUrl"
                class="w-full border rounded px-2 py-1 text-xs font-mono mb-2"
@@ -1189,6 +1540,21 @@
       </div>
     </details>
 
+    <!-- 安全/操作提示弹层(原 safety-strip 折进 ⓘ) -->
+    <details class="text-xs relative info-hint">
+      <summary class="info-trigger" title="安全与操作提示">ⓘ</summary>
+      <div class="control-popover absolute right-0 mt-2 p-3 z-[80] w-72 text-[11px] leading-relaxed">
+        <div class="mb-2">
+          <span class="section-kicker">安全设计</span>
+          <p class="mt-1 text-gray-300">API Key 只在后端 <code class="px-1">backend/.env</code>,前端永远拿不到,这里只能改 endpoint id。</p>
+        </div>
+        <div>
+          <span class="section-kicker">操作</span>
+          <p class="mt-1 text-gray-300">所有面板之间的细线可拖拽调整宽高。</p>
+        </div>
+      </div>
+    </details>
+
     <span class="badge"
           :class="backendOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
       <span class="pulse-dot mr-2 align-middle" :class="backendOnline ? '' : 'off'"></span>
@@ -1197,14 +1563,25 @@
   </div>
 </header>
 
-<!-- 安全提示小横条 -->
-<div class="safety-strip px-6 py-2 text-[11px]">
-  <b>安全设计</b>: API Key 只在后端 <code class="px-1 rounded">backend/.env</code> 里,前端永远拿不到。这里只能改 endpoint id。
-  <span class="ml-2 opacity-75">所有面板之间的细线可拖拽调整宽高。</span>
+<!-- 顶部通知 banner (场景加载等"会动很多字段"的操作) -->
+<div x-show="notification" x-cloak x-transition.opacity
+     class="px-6 py-2 flex items-center gap-3 text-[12px] notification-banner">
+  <span class="notification-dot"></span>
+  <div class="flex-1 min-w-0">
+    <span class="font-semibold text-amber-700" x-text="notification?.title"></span>
+    <span class="text-gray-500 ml-2" x-text="notification?.detail"></span>
+  </div>
+  <button x-show="notification?.undoSnapshot"
+          @click="undoMassTemplate()"
+          class="text-[11px] px-2 py-0.5 rounded border border-amber-400 text-amber-700 hover:bg-amber-50">
+    撤销（仅恢复配置）
+  </button>
+  <button @click="dismissNotification()"
+          class="text-gray-400 hover:text-gray-700 text-[14px] leading-none">×</button>
 </div>
 
 <!-- ========== 三栏水平布局(可拖拽) ========== -->
-<main id="main-split" class="split" style="height: calc(100vh - 92px); padding: 12px;">
+<main id="main-split" class="split" style="height: calc(100vh - 49px); padding: 12px;">
 
   <!-- ========== 左栏 ========== -->
   <aside id="pane-left" class="pane">
@@ -1334,28 +1711,10 @@
         <p class="text-[11px] text-gray-400 mt-1">修改后,下次运行生效(不影响当前会话已有历史)</p>
       </div>
 
-      <!-- Mass 产品模板 -->
-      <div x-show="leftTab === 'eval'" class="mb-4">
-        <div class="flex items-center justify-between mb-2">
-          <label class="section-kicker">Mass Scenario</label>
-          <span class="text-[10px] text-gray-500">业务模板</span>
-        </div>
-        <template x-for="tpl in massTemplates" :key="tpl.id">
-          <button @click="applyMassTemplate(tpl)"
-                  class="eval-card block w-full text-left text-xs mb-2"
-                  :class="{ 'active': activeMassTemplateId === tpl.id }">
-            <div class="flex items-center justify-between gap-2">
-              <div class="font-semibold text-gray-900" x-text="tpl.title"></div>
-              <span class="badge bg-cyan-100 text-cyan-700" x-text="(tpl.custom_tools?.length || 0) + ' tools'"></span>
-            </div>
-            <div class="text-gray-500 mt-1" x-text="tpl.subtitle"></div>
-            <div class="flex flex-wrap gap-1 mt-2">
-              <template x-for="m in tpl.metrics" :key="m">
-                <span class="text-[10px] px-1.5 py-0.5 border border-stone-300 text-gray-500" x-text="m"></span>
-              </template>
-            </div>
-          </button>
-        </template>
+      <!-- Mass Scenario 已迁移到顶部 pill,Eval tab 现在只装 Benchmark Suite -->
+      <div x-show="leftTab === 'eval' && activeMassTemplate()" class="mb-3 text-[11px] text-gray-500 border-l-2 border-amber-300 pl-2">
+        当前场景: <span class="font-semibold text-amber-700" x-text="activeMassTemplate()?.title"></span>
+        — 在顶部"场景 pill"可切换。
       </div>
 
       <!-- 工具勾选 -->
@@ -1407,13 +1766,14 @@
           </button>
         </div>
 
-        <div class="grid grid-cols-2 gap-2 mt-3">
+        <div class="flex items-center gap-3 mt-2 text-[11px] text-gray-500">
           <button @click="addToolExamples()"
-                  class="text-[11px] border border-stone-300 rounded py-1 hover:bg-white">
-            加入示例工具
+                  class="hover:text-gray-900 underline-offset-2 hover:underline">
+            + 加入示例工具
           </button>
+          <span class="text-gray-300">·</span>
           <button @click="resetCustomTools()"
-                  class="text-[11px] border border-stone-300 rounded py-1 hover:bg-white">
+                  class="hover:text-red-700 underline-offset-2 hover:underline">
             清空自定义
           </button>
         </div>
@@ -1481,28 +1841,62 @@
         <p class="text-[11px] text-gray-400 mt-1">循环上限,防止 agent 死循环烧钱</p>
       </div>
 
-      <!-- Eval Suite -->
+      <!-- 无断言用例(轻量起手对话) -->
+      <div x-show="leftTab === 'eval'" class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <div class="section-kicker">💬 无断言用例</div>
+            <div class="text-[11px] text-gray-500">点一下,把示例文本塞到对话框,自己回车发送。</div>
+          </div>
+          <span class="metric-chip text-[11px]">
+            <span x-text="chatExamples.length"></span> chats
+          </span>
+        </div>
+        <template x-for="ex in chatExamples" :key="ex.id">
+          <button @click="userInput = ex.user_input"
+                  class="block w-full text-left text-xs bg-stone-100 hover:bg-white
+                         text-gray-800 border border-stone-200 px-2 py-1.5 rounded mb-1">
+            <span class="font-medium" x-text="ex.label"></span>
+            <span class="text-gray-500" x-text="'  ' + ex.user_input"></span>
+          </button>
+        </template>
+      </div>
+
+      <!-- Benchmark Suite(带 expected_tools 断言) -->
       <div x-show="leftTab === 'eval'" class="mb-4 border-t pt-3">
         <div class="flex items-center justify-between mb-2">
           <div>
-            <div class="section-kicker">Eval Suite</div>
-            <div class="text-[11px] text-gray-500">选择用例后运行,右侧 Diagnosis 自动对照预期工具链。</div>
+            <div class="section-kicker">🎯 Benchmark 用例</div>
+            <div class="text-[11px] text-gray-500">
+              「挂断言」让右栏 Diagnosis 对照预期工具链；「用作输入」把示例填进对话框。
+            </div>
           </div>
           <span class="metric-chip text-[11px]">
             <span x-text="benchmarkCases.length"></span> cases
           </span>
         </div>
         <template x-for="b in benchmarkCases" :key="b.id">
-          <button @click="loadBenchmarkCase(b)"
-                  class="eval-card block w-full text-left text-xs mb-2"
-                  :class="{ 'active': activeBenchmarkId === b.id }">
+          <div class="eval-card block w-full text-left text-xs mb-2"
+               :class="{ 'active': activeBenchmarkId === b.id }">
             <div class="flex items-center justify-between gap-2">
               <div class="font-semibold text-gray-900" x-text="b.title"></div>
               <span class="text-[10px] text-gray-500">max <span x-text="b.max_steps"></span></span>
             </div>
-            <div class="text-gray-500 mt-1" x-text="b.user_input"></div>
+            <div class="text-gray-500 mt-1 font-mono text-[11px]" x-text="'“' + b.user_input + '”'"></div>
             <div class="font-mono text-[10px] text-gray-400 mt-1" x-text="'expect: ' + b.expected_tools.join(' → ')"></div>
-          </button>
+            <div class="flex items-center gap-2 mt-2">
+              <button @click="loadBenchmarkCase(b)"
+                      class="text-[10px] px-2 py-0.5 rounded border"
+                      :class="activeBenchmarkId === b.id
+                              ? 'border-amber-500 bg-amber-50 text-amber-700'
+                              : 'border-stone-300 text-gray-600 hover:bg-white'"
+                      x-text="activeBenchmarkId === b.id ? '✓ 已挂断言' : '挂上断言'"></button>
+              <button @click="useBenchmarkInput(b)"
+                      class="text-[10px] px-2 py-0.5 rounded border border-stone-300 text-gray-600 hover:bg-white">
+                → 用作输入
+              </button>
+            </div>
+          </div>
         </template>
       </div>
 
@@ -1513,17 +1907,11 @@
         清空会话历史
       </button>
 
-      <!-- 帮助示例 -->
-      <div x-show="leftTab === 'config'" class="mt-5 border-t pt-3">
-        <div class="section-kicker mb-2">示例任务</div>
-        <template x-for="(ex, i) in examples" :key="i">
-          <button @click="userInput = ex.text"
-                  class="block w-full text-left text-xs bg-stone-100 hover:bg-white
-                         text-gray-800 border border-stone-200 px-2 py-1.5 rounded mb-1">
-            <span class="font-medium" x-text="ex.label"></span>
-            <span class="text-gray-500" x-text="'  ' + ex.text"></span>
-          </button>
-        </template>
+      <!-- 示例任务已迁移到 Eval tab,作为"无断言用例"统一管理 -->
+      <div x-show="leftTab === 'config'" class="mt-5 border-t pt-3 text-[11px] text-gray-400 italic">
+        想快速塞一句对话?去 <button @click="leftTab = 'eval'"
+        class="text-amber-700 hover:underline font-semibold not-italic">Eval tab</button>
+        的"无断言用例"区——所有可点击试跑的输入都收在那里。
       </div>
     </div>
   </aside>
@@ -1547,6 +1935,68 @@
                   title="清空当前 messages 列表，开始新一轮会话">
             🗑 清空会话
           </button>
+        </div>
+      </div>
+
+      <!-- LLM Steps · ReAct 进度图 -->
+      <div class="llm-step-progress" x-show="maxSteps > 0">
+        <div class="react-head">
+          <span class="section-kicker">LLM Steps · ReAct loop</span>
+          <div class="react-cycle" title="Reason → Act → Observe → Reason …">
+            <span class="cycle-node" :class="reactPhase() === 'reason' ? 'active' : ''">
+              <span class="cycle-icon">●</span><span>Reason</span>
+            </span>
+            <span class="cycle-link">→</span>
+            <span class="cycle-node" :class="reactPhase() === 'act' ? 'active' : ''">
+              <span class="cycle-icon">▲</span><span>Act</span>
+            </span>
+            <span class="cycle-link">→</span>
+            <span class="cycle-node" :class="reactPhase() === 'observe' ? 'active' : ''">
+              <span class="cycle-icon">◆</span><span>Observe</span>
+            </span>
+            <span class="cycle-loopback" title="observation feeds back into next reason">↺</span>
+          </div>
+          <span class="llm-step-counter">
+            <span class="val" :class="currentStep > 0 ? '' : 'muted'" x-text="currentStep"></span>
+            <span class="sep">/</span>
+            <span class="max" x-text="maxSteps"></span>
+            <span class="state running" x-show="isRunning" x-cloak>RUNNING</span>
+            <span class="state done"
+                  x-show="!isRunning && currentStep > 0 && currentStep < maxSteps"
+                  x-cloak>DONE</span>
+            <span class="state max"
+                  x-show="!isRunning && currentStep >= maxSteps && maxSteps > 0"
+                  x-cloak>MAX</span>
+          </span>
+        </div>
+
+        <div class="react-chain">
+          <template x-for="n in maxSteps" :key="n">
+            <div class="react-step">
+              <div class="react-capsule"
+                   :class="capsuleClass(n)"
+                   :title="stepCellTitle(n)">
+                <template x-if="n <= currentStep">
+                  <div class="bead-row">
+                    <span class="bead bead-thought" x-show="stepBead(n,'thought')"></span>
+                    <template x-if="stepBead(n,'thought') && (stepBead(n,'action') || stepBead(n,'final'))">
+                      <span class="bead-arrow">›</span>
+                    </template>
+                    <span class="bead bead-action" x-show="stepBead(n,'action')"></span>
+                    <template x-if="stepBead(n,'action') && stepBead(n,'observe')">
+                      <span class="bead-arrow">›</span>
+                    </template>
+                    <span class="bead bead-obs" x-show="stepBead(n,'observe')"></span>
+                    <span class="bead bead-final" x-show="stepBead(n,'final')"></span>
+                    <span class="bead bead-max" x-show="stepBead(n,'max')"></span>
+                  </div>
+                </template>
+              </div>
+              <span class="react-arrow"
+                    :class="n < currentStep ? 'done' : (n === currentStep && isRunning ? 'current' : '')"
+                    x-show="n < maxSteps">›</span>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -1593,9 +2043,6 @@
         <div x-show="isRunning" class="flex items-center gap-2 text-xs text-gray-500">
           <div class="animate-pulse font-mono">● ● ●</div>
           <span>Agent 正在思考...</span>
-          <span class="font-mono text-gray-400" x-show="currentStep > 0">
-            Step <span x-text="currentStep"></span> / <span x-text="maxSteps"></span>
-          </span>
         </div>
       </div>
 
@@ -1665,10 +2112,11 @@
             </div>
             <div class="metric-chip text-[11px] text-gray-600">
               累计 <span class="font-mono font-medium" x-text="totalTokens"></span> tokens
+              <span x-show="hasEstimatedTokens" class="ml-1 text-amber-600" title="部分调用 LLM 未返回 usage,数值由字符数估算">~est</span>
             </div>
           </div>
           <p class="text-[11px] text-gray-400 mb-2">
-            单步 prompt_tokens 线性增长 → 累计成本 O(n²)
+            实线 = 单次 prompt / completion 线性增长；虚线 = 累计总量(右轴) → O(n²)
           </p>
           <div class="flex-1 min-h-0 relative">
             <canvas x-ref="tokenChart"></canvas>
@@ -1685,27 +2133,27 @@
               <h2 class="panel-title">观察面板</h2>
             </div>
             <div class="flex flex-col items-end gap-1">
-              <div class="flex gap-1">
+              <div class="tab-cluster">
                 <button @click="inspectorView = 'trace'"
-                        :class="inspectorView === 'trace' ? 'bg-gray-900 text-stone-50' : 'bg-gray-100 text-gray-600'"
-                        class="text-[11px] px-2 py-0.5 rounded">Trace</button>
+                        :class="{ active: inspectorView === 'trace' }"
+                        class="tab-btn">Trace</button>
                 <button @click="inspectorView = 'messages'"
-                        :class="inspectorView === 'messages' ? 'bg-gray-900 text-stone-50' : 'bg-gray-100 text-gray-600'"
-                        class="text-[11px] px-2 py-0.5 rounded">Messages</button>
+                        :class="{ active: inspectorView === 'messages' }"
+                        class="tab-btn">Messages</button>
                 <button @click="inspectorView = 'diagnosis'"
-                        :class="inspectorView === 'diagnosis' ? 'bg-gray-900 text-stone-50' : 'bg-gray-100 text-gray-600'"
-                        class="text-[11px] px-2 py-0.5 rounded">Diagnosis</button>
+                        :class="{ active: inspectorView === 'diagnosis' }"
+                        class="tab-btn">Diagnosis</button>
               </div>
-              <div x-show="inspectorView === 'trace'" class="flex gap-1">
+              <div x-show="inspectorView === 'trace'" class="tab-cluster">
                 <button @click="timelineFilter = 'all'"
-                        :class="timelineFilter === 'all' ? 'bg-stone-200 text-gray-900' : 'bg-gray-100 text-gray-600'"
-                        class="text-[10px] px-2 py-0.5 rounded">全部</button>
+                        :class="{ active: timelineFilter === 'all' }"
+                        class="tab-btn compact">全部</button>
                 <button @click="timelineFilter = 'llm'"
-                        :class="timelineFilter === 'llm' ? 'bg-stone-200 text-gray-900' : 'bg-gray-100 text-gray-600'"
-                        class="text-[10px] px-2 py-0.5 rounded">LLM</button>
+                        :class="{ active: timelineFilter === 'llm' }"
+                        class="tab-btn compact">LLM</button>
                 <button @click="timelineFilter = 'tool'"
-                        :class="timelineFilter === 'tool' ? 'bg-stone-200 text-gray-900' : 'bg-gray-100 text-gray-600'"
-                        class="text-[10px] px-2 py-0.5 rounded">Tool</button>
+                        :class="{ active: timelineFilter === 'tool' }"
+                        class="tab-btn compact">Tool</button>
               </div>
             </div>
           </div>
@@ -1817,6 +2265,11 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function agentPlayground() {
+  // 注意:Chart 实例放在闭包里、不进 Alpine 反应式状态。
+  // 否则 Alpine 3 会用 Proxy 深包装,Chart.js 内部缓存的 dataset 引用与 Proxy 视图不一致,
+  // 后续 chart.update() 看不到我们对 datasets[i].data 的赋值,曲线就永远是空的。
+  let tokenChartInstance = null;
+
   return {
     // ========== 配置状态 ==========
     backendUrl: 'http://127.0.0.1:8000',
@@ -1862,6 +2315,17 @@ function agentPlayground() {
     activeBenchmarkId: null,
     activeMassTemplateId: null,
 
+    // ========== 顶部通知(banner) ==========
+    // notification: null | { title, detail, undoSnapshot, timer }
+    // undoSnapshot 只回滚配置字段,不动 history/timeline(session 已被 reset 不可恢复)
+    notification: null,
+    scenarioMenuOpen: false,
+    // 进入"场景模式"前的状态快照,只在转换 (null → scenario) 时更新一次,
+    // 切换 (A → B) 不动它,清场景时用它回滚回到"任何场景之前"。
+    preScenarioSnapshot: null,
+    // 上一次 applyMassTemplate 之后的状态指纹,用来判断用户有没有手改过。
+    postScenarioFingerprint: null,
+
     // ========== 运行时状态 ==========
     userInput: '',
     isRunning: false,
@@ -1874,18 +2338,11 @@ function agentPlayground() {
     timeline: [],
     inspectorView: 'trace',
     timelineFilter: 'all',
-    tokenChart: null,
     tokenData: [],
 
     // ========== 示例任务 ==========
-    examples: [
-      { label: '[简单] 时间',   text: '现在几点?' },
-      { label: '[探索] 列目录', text: 'workspace 里有什么文件?' },
-      { label: '[多步] 算均分', text: '算一下 scores.txt 里所有人的平均分' },
-      { label: '[写文件] 报告', text: '把 scores.txt 里的成绩统计(总分、平均分、最高最低分)写入 report.txt' },
-      { label: '[沙箱] 越界',   text: '读一下 /etc/passwd' },
-      { label: '[幻觉] 错路径', text: '读一下 READ 文件' },
-    ],
+    // 旧的本地 examples 数组已迁移到后端 evals.CHAT_EXAMPLES,通过 /api/eval-assets 返回。
+    chatExamples: [],   // 后端 /api/eval-assets 拉回
 
     customToolExamples: [
       {
@@ -1963,6 +2420,11 @@ function agentPlayground() {
         if (td) this.tokenData = JSON.parse(td);
       } catch (e) { /* 数据损坏时静默忽略 */ }
 
+      // 必须在任何可能调 resetSession/updateChart 的逻辑(如 enterLesson)之前建好 chart 实例,
+      // 否则 updateChart 会在 chart 实例还没建好时拿不到引用,初始数据无法回填
+      this.initChart();
+      if (this.tokenData.length) this.updateChart();
+
       // 持久化 config
       this.$watch('backendUrl',    v => localStorage.setItem('agent_pg_backend', v));
       this.$watch('modelOverride', v => localStorage.setItem('agent_pg_model', v));
@@ -2006,8 +2468,6 @@ function agentPlayground() {
         }
       }
 
-      this.initChart();
-      if (this.tokenData.length) this.updateChart();
       setInterval(() => this.checkHealth(), 10000);
     },
 
@@ -2198,16 +2658,19 @@ function agentPlayground() {
     },
 
     initChart() {
+      if (tokenChartInstance || !this.$refs.tokenChart) return;
       const ctx = this.$refs.tokenChart.getContext('2d');
-      this.tokenChart = new Chart(ctx, {
+      tokenChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
           labels: [],
           datasets: [
-            { label: 'prompt', data: [], borderColor: '#175cff',
-              backgroundColor: 'rgba(23,92,255,.12)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5 },
-            { label: 'completion', data: [], borderColor: '#23c55e',
-              backgroundColor: 'rgba(35,197,94,.13)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5 },
+            { label: 'prompt', data: [], borderColor: '#ffb02e',
+              backgroundColor: 'rgba(255,176,46,.12)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5, yAxisID: 'y' },
+            { label: 'completion', data: [], borderColor: '#6ee7b7',
+              backgroundColor: 'rgba(110,231,183,.10)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5, yAxisID: 'y' },
+            { label: 'cumulative', data: [], borderColor: '#ff7a00',
+              backgroundColor: 'transparent', borderDash: [4, 4], tension: .32, fill: false, pointRadius: 2, pointHoverRadius: 4, yAxisID: 'y1' },
           ]
         },
         options: {
@@ -2216,13 +2679,13 @@ function agentPlayground() {
           plugins: {
             legend: {
               position: 'bottom',
-              labels: { boxWidth: 10, color: '#687269', font: { family: 'IBM Plex Mono', size: 10 } }
+              labels: { boxWidth: 10, color: '#807868', font: { family: 'JetBrains Mono', size: 10 } }
             },
             tooltip: {
-              backgroundColor: '#171a17',
-              titleColor: '#fff8e8',
-              bodyColor: '#e8f2df',
-              borderColor: '#d9d1bf',
+              backgroundColor: '#0d0f14',
+              titleColor: '#ece5d3',
+              bodyColor: '#b9b1a0',
+              borderColor: 'rgba(255,176,46,.42)',
               borderWidth: 1,
               displayColors: true,
             },
@@ -2230,14 +2693,22 @@ function agentPlayground() {
           scales: {
             y: {
               beginAtZero: true,
+              position: 'left',
               border: { color: '#d9d1bf' },
               grid: { color: 'rgba(22,25,22,.08)' },
-              ticks: { color: '#687269', font: { family: 'IBM Plex Mono', size: 10 } },
+              ticks: { color: '#807868', font: { family: 'JetBrains Mono', size: 10 } },
+            },
+            y1: {
+              beginAtZero: true,
+              position: 'right',
+              border: { color: 'rgba(255,122,0,.5)' },
+              grid: { drawOnChartArea: false },
+              ticks: { color: '#ff7a00', font: { family: 'JetBrains Mono', size: 10 } },
             },
             x: {
               border: { color: '#d9d1bf' },
               grid: { color: 'rgba(22,25,22,.05)' },
-              ticks: { color: '#687269', font: { family: 'IBM Plex Mono', size: 10 } },
+              ticks: { color: '#807868', font: { family: 'JetBrains Mono', size: 10 } },
             },
           }
         }
@@ -2245,14 +2716,25 @@ function agentPlayground() {
     },
 
     updateChart() {
-      this.tokenChart.data.labels = this.tokenData.map(d => 'Step ' + d.step);
-      this.tokenChart.data.datasets[0].data = this.tokenData.map(d => d.prompt);
-      this.tokenChart.data.datasets[1].data = this.tokenData.map(d => d.completion);
-      this.tokenChart.update();
+      if (!tokenChartInstance) return;
+      let cum = 0;
+      const cumulative = this.tokenData.map(d => {
+        cum += (d.prompt || 0) + (d.completion || 0);
+        return cum;
+      });
+      tokenChartInstance.data.labels = this.tokenData.map((d, i) => '#' + (d.callIdx ?? (i + 1)));
+      tokenChartInstance.data.datasets[0].data = this.tokenData.map(d => d.prompt);
+      tokenChartInstance.data.datasets[1].data = this.tokenData.map(d => d.completion);
+      tokenChartInstance.data.datasets[2].data = cumulative;
+      tokenChartInstance.update();
     },
 
     get totalTokens() {
       return this.tokenData.reduce((s, d) => s + d.prompt + d.completion, 0);
+    },
+
+    get hasEstimatedTokens() {
+      return this.tokenData.some(d => d.estimated);
     },
 
     async consumeEventStream(resp) {
@@ -2390,6 +2872,56 @@ function agentPlayground() {
       this.pendingToolRollbackHistoryLen = null;
     },
 
+    stepEvents(n) {
+      return this.timeline.filter(e => e.step === n);
+    },
+
+    stepBead(n, kind) {
+      const events = this.stepEvents(n);
+      if (kind === 'thought') return events.some(e => e.event === 'llm_response');
+      if (kind === 'action') {
+        return events.some(e => e.event === 'llm_response' && e.data?.tool_calls?.length);
+      }
+      if (kind === 'observe') {
+        return events.some(e => e.event === 'tool_result' || e.event === 'tool_input_required');
+      }
+      if (kind === 'final') return events.some(e => e.event === 'final_answer');
+      if (kind === 'max')   return events.some(e => e.event === 'max_steps');
+      return false;
+    },
+
+    capsuleClass(n) {
+      if (n > this.currentStep) return 'pending';
+      if (this.isRunning && n === this.currentStep) return 'current';
+      return 'done';
+    },
+
+    reactPhase() {
+      if (!this.isRunning) return null;
+      if (!this.timeline.length) return 'reason';
+      const last = this.timeline[this.timeline.length - 1];
+      if (last.event === 'user_input') return 'reason';
+      if (last.event === 'llm_response') {
+        return last.data?.tool_calls?.length ? 'act' : 'reason';
+      }
+      if (last.event === 'tool_input_required') return 'observe';
+      if (last.event === 'tool_result') return 'observe';
+      return 'reason';
+    },
+
+    stepCellTitle(n) {
+      if (n > this.currentStep) return `Step ${n} · 待执行`;
+      const parts = [];
+      if (this.stepBead(n, 'thought')) parts.push('思考');
+      if (this.stepBead(n, 'action'))  parts.push('行动');
+      if (this.stepBead(n, 'observe')) parts.push('观察');
+      if (this.stepBead(n, 'final'))   parts.push('终答');
+      if (this.stepBead(n, 'max'))     parts.push('上限触发');
+      const shape = parts.length ? ' · ' + parts.join(' → ') : '';
+      if (this.isRunning && n === this.currentStep) return `Step ${n} · 进行中${shape}`;
+      return `Step ${n} · 已完成${shape}`;
+    },
+
     handleEvent(payload) {
       const ev = { ...payload, _open: true };
       this.timeline.push(ev);
@@ -2400,6 +2932,7 @@ function agentPlayground() {
       } else if (payload.event === 'llm_response') {
         if (payload.data.usage) {
           this.tokenData.push({
+            callIdx: this.tokenData.length + 1,
             step: payload.step,
             prompt: payload.data.usage.prompt_tokens || 0,
             completion: payload.data.usage.completion_tokens || 0,
@@ -2482,11 +3015,13 @@ function agentPlayground() {
       try {
         const r = await fetch(this.backendUrl + '/api/eval-assets');
         const j = await r.json();
+        this.chatExamples = j.chat_examples || [];
         this.benchmarkCases = j.benchmarks || [];
         this.massTemplates = j.mass_templates || [];
         this.failureTaxonomy = j.failure_taxonomy || [];
       } catch (e) {
         console.warn('加载评估资产失败:', e);
+        this.chatExamples = [];
         this.benchmarkCases = [];
         this.massTemplates = [];
         this.failureTaxonomy = [];
@@ -2495,7 +3030,23 @@ function agentPlayground() {
 
     applyMassTemplate(tpl) {
       if (!tpl) return;
-      this.leftTab = 'eval';
+      // 1. 仅当"从无场景进入场景"时才快照,A→B 不动它(确保 clear 总能回到任何场景之前)
+      const previousState = {
+        systemPrompt: this.systemPrompt,
+        customTools: JSON.parse(JSON.stringify(this.customTools)),
+        enabledTools: this.enabledTools.slice(),
+        manualTools: this.manualTools.slice(),
+        maxSteps: this.maxSteps,
+        userInput: this.userInput,
+        activeMassTemplateId: this.activeMassTemplateId,
+        activeBenchmarkId: this.activeBenchmarkId,
+        inspectorView: this.inspectorView,
+      };
+      if (!this.activeMassTemplateId) {
+        this.preScenarioSnapshot = previousState;
+      }
+
+      // 2. 应用模板
       this.activeMassTemplateId = tpl.id;
       this.activeBenchmarkId = null;
       this.systemPrompt = tpl.system_prompt || this.systemPrompt;
@@ -2507,24 +3058,121 @@ function agentPlayground() {
       const firstPrompt = tpl.example_prompts?.[0];
       if (firstPrompt) this.userInput = firstPrompt;
       this.inspectorView = 'diagnosis';
+
+      // 3. 记下"刚应用完"的状态指纹,以后 clear 时用来判断用户改过没
+      this.postScenarioFingerprint = this.scenarioStateFingerprint();
+
+      // 4. 用 banner 把"刚才发生了什么"显式告诉用户
+      const changed = [];
+      if (tpl.system_prompt && tpl.system_prompt !== previousState.systemPrompt) changed.push('system prompt');
+      if ((tpl.custom_tools?.length || 0) > 0) changed.push(`${tpl.custom_tools.length} mock 工具`);
+      if ((tpl.enabled_tools?.length || 0) > 0) changed.push(`勾选工具 ${tpl.enabled_tools.length} 项`);
+      if ((tpl.manual_tools?.length || 0) > 0) changed.push(`人工模式 ${tpl.manual_tools.length} 项`);
+      this.showNotification({
+        title: `已加载场景: ${tpl.title}`,
+        detail: changed.length ? `覆盖了 ${changed.join(' + ')}` : '配置已就绪',
+        undoSnapshot: previousState,
+      });
+    },
+
+    scenarioStateFingerprint() {
+      return JSON.stringify({
+        systemPrompt: this.systemPrompt,
+        customTools: this.customTools,
+        enabledTools: this.enabledTools.slice().sort(),
+        manualTools: this.manualTools.slice().sort(),
+        maxSteps: this.maxSteps,
+      });
+    },
+
+    showNotification({ title, detail, undoSnapshot }) {
+      if (this.notification?.timer) clearTimeout(this.notification.timer);
+      this.notification = { title, detail, undoSnapshot, timer: null };
+      this.notification.timer = setTimeout(() => { this.notification = null; }, 12000);
+    },
+
+    dismissNotification() {
+      if (this.notification?.timer) clearTimeout(this.notification.timer);
+      this.notification = null;
+    },
+
+    undoMassTemplate() {
+      const s = this.notification?.undoSnapshot;
+      if (!s) return;
+      this.systemPrompt = s.systemPrompt;
+      this.customTools = JSON.parse(JSON.stringify(s.customTools));
+      this.enabledTools = s.enabledTools.slice();
+      this.manualTools = s.manualTools.slice();
+      this.maxSteps = s.maxSteps;
+      this.userInput = s.userInput;
+      this.activeMassTemplateId = s.activeMassTemplateId;
+      this.activeBenchmarkId = s.activeBenchmarkId;
+      this.inspectorView = s.inspectorView;
+      // 清掉场景快照指纹,避免下一次 apply 时残留旧 fingerprint 影响 touched 判断
+      this.preScenarioSnapshot = null;
+      this.postScenarioFingerprint = null;
+      this.dismissNotification();
+    },
+
+    clearMassScenario() {
+      // "清除场景" = 默认回滚到加载场景前的状态。
+      // 仅当用户手改过配置时,弹确认让他选要不要丢弃修改。
+      this.scenarioMenuOpen = false;
+      const snap = this.preScenarioSnapshot;
+      if (!snap) {
+        // 没有快照(不该走到这,防御)：只清激活态
+        this.activeMassTemplateId = null;
+        return;
+      }
+      const touched = this.postScenarioFingerprint && this.scenarioStateFingerprint() !== this.postScenarioFingerprint;
+      if (touched) {
+        const ok = window.confirm(
+          '你在场景加载之后改过配置。\n\n确定 = 回滚到加载场景前的状态(会丢掉你的修改)\n取消 = 仅取消场景标记,保留你当前的配置'
+        );
+        if (!ok) {
+          this.activeMassTemplateId = null;
+          this.preScenarioSnapshot = null;
+          this.postScenarioFingerprint = null;
+          return;
+        }
+      }
+      // 回滚
+      this.systemPrompt = snap.systemPrompt;
+      this.customTools = JSON.parse(JSON.stringify(snap.customTools));
+      this.enabledTools = snap.enabledTools.slice();
+      this.manualTools = snap.manualTools.slice();
+      this.maxSteps = snap.maxSteps;
+      this.userInput = snap.userInput;
+      this.activeMassTemplateId = null;
+      this.activeBenchmarkId = snap.activeBenchmarkId;
+      this.inspectorView = snap.inspectorView;
+      this.preScenarioSnapshot = null;
+      this.postScenarioFingerprint = null;
+      this.dismissNotification();
     },
 
     loadBenchmarkCase(b) {
+      // 挂"断言"——只设置 activeBenchmarkId,让 Diagnosis 知道这次跑要对照谁的 expected_tools。
+      // 不再覆盖 userInput / enabledTools / maxSteps,避免静默改 Config & Tools 状态。
+      // 用户想把示例填进对话框,点卡片上的"用作输入"按钮。
       if (!b) return;
       this.leftTab = 'eval';
-      this.activeBenchmarkId = b.id;
-      this.userInput = b.user_input;
-      this.maxSteps = b.max_steps || this.maxSteps;
-      this.enabledTools = Array.from(new Set([
-        ...this.enabledTools,
-        ...(b.expected_tools || []),
-      ]));
-      this.resetSession();
+      this.activeBenchmarkId = this.activeBenchmarkId === b.id ? null : b.id;
       this.inspectorView = 'diagnosis';
+    },
+
+    useBenchmarkInput(b) {
+      // 显式"把示例输入填进对话框"——和挂断言是两件事,各自一个按钮。
+      if (!b) return;
+      this.userInput = b.user_input;
     },
 
     activeBenchmark() {
       return this.benchmarkCases.find(b => b.id === this.activeBenchmarkId) || null;
+    },
+
+    activeMassTemplate() {
+      return this.massTemplates.find(t => t.id === this.activeMassTemplateId) || null;
     },
 
     get currentLesson() {
@@ -2551,6 +3199,12 @@ function agentPlayground() {
       this.lessonStepIdx = 0;
       this.lessonComplete = false;
       this.showLessonExplanation = false;
+      // 进关 = 一次干净开始,清掉自由模式可能挂着的 scenario / benchmark / banner
+      this.activeMassTemplateId = null;
+      this.activeBenchmarkId = null;
+      this.preScenarioSnapshot = null;
+      this.postScenarioFingerprint = null;
+      this.dismissNotification();
       localStorage.setItem('agent_pg_lesson', id);
 
       // 灌入 preset_config

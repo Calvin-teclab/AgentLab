@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware                   # noqa: E40
 from sse_starlette.sse import EventSourceResponse                    # noqa: E402
 
 from agent import continue_agent_after_tool, run_agent                # noqa: E402
-from evals import BENCHMARK_CASES, FAILURE_TAXONOMY, MASS_TEMPLATES   # noqa: E402
+from evals import BENCHMARK_CASES, CHAT_EXAMPLES, FAILURE_TAXONOMY, MASS_TEMPLATES   # noqa: E402
 from lessons import LESSONS                                          # noqa: E402
 from schemas import ContinueToolRequest, RunAgentRequest              # noqa: E402
 from tools import TOOL_REGISTRY                                      # noqa: E402
@@ -69,8 +69,9 @@ def list_lessons():
 
 @app.get("/api/eval-assets")
 def eval_assets():
-    """返回评估用例、业务模板和失败归因 taxonomy。"""
+    """返回试跑用例(无断言 + benchmark)、业务模板和失败归因 taxonomy。"""
     return {
+        "chat_examples": CHAT_EXAMPLES,
         "benchmarks": BENCHMARK_CASES,
         "mass_templates": MASS_TEMPLATES,
         "failure_taxonomy": FAILURE_TAXONOMY,
