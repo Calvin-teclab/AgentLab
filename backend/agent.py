@@ -20,7 +20,7 @@ from typing import AsyncGenerator, Dict, List, Tuple
 from openai import OpenAI
 
 from schemas import AgentEvent
-from tools import build_tools_schema, get_tool_impl, normalize_custom_tools
+from tools import PolicyViolation, build_tools_schema, get_tool_impl, normalize_custom_tools
 
 
 # === LLM 客户端初始化 ==================================================
@@ -154,9 +154,16 @@ def _exec_tool_call(tc: dict, custom_tools_by_name: Dict[str, dict] = None) -> T
             f"未知工具 {name}",
         )
 
-    # 边界 3: 工具执行异常
+    # 边界 3a: 工具层主动拒绝(代码级沙箱拦下越权请求)
+    # 这是结构化信号,前端无需正则匹配中文文案即可识别"安全边界生效"。
     try:
         result = impl(**args)
+    except PolicyViolation as e:
+        return (
+            {"tool": name, "args": args, "status": "policy_violation", "reason": str(e)},
+            f"已被代码级沙箱拦截:{e}",
+        )
+    # 边界 3b: 工具执行异常(工具本身的 bug,不是策略拦截)
     except Exception as e:
         return (
             {"tool": name, "args": args, "status": "exec_error", "error": str(e)},

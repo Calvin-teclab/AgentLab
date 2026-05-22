@@ -2270,6 +2270,11 @@ function agentPlayground() {
   // 后续 chart.update() 看不到我们对 datasets[i].data 的赋值,曲线就永远是空的。
   let tokenChartInstance = null;
 
+  // runDiagnosis() 被 6+ 处 x-text/x-show/x-for 绑定,Alpine 每次 reactive tick 都会重算。
+  // 用闭包变量做记忆化,以 timeline.length + activeBenchmarkId 为 key。
+  // tokenData 与 timeline 1:1 同步,所以 totalTokens 不必单独入 key。
+  let diagCache = { key: null, value: null };
+
   return {
     // ========== 配置状态 ==========
     backendUrl: 'http://127.0.0.1:8000',
@@ -3311,6 +3316,12 @@ function agentPlayground() {
     },
 
     runDiagnosis() {
+      // 先读 reactive 状态(让 Alpine 追踪依赖),再用闭包缓存短路真正的扫描计算。
+      const tlLen = this.timeline.length;
+      const benchId = this.activeBenchmarkId || '';
+      const cacheKey = tlLen + ':' + benchId;
+      if (diagCache.key === cacheKey) return diagCache.value;
+
       const llmEvents = this.timeline.filter(e => e.event === 'llm_response');
       const toolCallEvents = this.timeline.filter(e => e.event === 'tool_call');
       const toolResultEvents = this.timeline.filter(e => e.event === 'tool_result');
@@ -3331,21 +3342,42 @@ function agentPlayground() {
       if (this.timeline.some(e => e.event === 'max_steps')) {
         pushSignal('loop_or_budget', 'high', 'Agent 触达 max_steps 仍未完成,可能存在循环或预算失控。');
       }
+
+      // 结构化 status 分诊：每个 tool_call 已带 status,前端无需正则匹配 observation 文本。
+      // 关键映射:
+      //   arg_parse_error  → bad_arguments      (模型吐了非法 JSON)
+      //   unknown_tool     → wrong_tool         (模型幻觉了一个未注册工具名)
+      //   exec_error       → tool_observation_error (工具自己抛了未捕获异常)
+      //   policy_violation → safety_boundary    (代码级沙箱按预期拦下,severity=ok)
+      const policyFired = toolCallEvents.some(e => e.data?.status === 'policy_violation');
+      const statusByCallId = {};
       for (const e of toolCallEvents) {
+        const id = e.data?.tool_call_id;
+        if (id) statusByCallId[id] = e.data?.status;
         const status = e.data?.status;
-        if (['arg_parse_error', 'exec_error'].includes(status)) {
-          pushSignal('bad_arguments', 'high', `${e.data?.tool || 'tool'} 返回 ${status}。`);
-        }
-        if (status === 'unknown_tool') {
-          pushSignal('wrong_tool', 'high', `模型请求了未注册工具 ${e.data?.tool}。`);
+        const toolName = e.data?.tool || 'tool';
+        if (status === 'arg_parse_error') {
+          pushSignal('bad_arguments', 'high', `${toolName} 参数 JSON 解析失败。`);
+        } else if (status === 'unknown_tool') {
+          pushSignal('wrong_tool', 'high', `模型请求了未注册工具 ${toolName}。`);
+        } else if (status === 'exec_error') {
+          pushSignal('tool_observation_error', 'high',
+            `${toolName} 抛出未捕获异常: ${this.truncate(e.data?.error || '', 80)}`);
+        } else if (status === 'policy_violation') {
+          pushSignal('safety_boundary', 'ok',
+            `${toolName} 被代码级沙箱拦下(策略生效): ${this.truncate(e.data?.reason || '', 80)}`);
         }
       }
+
+      // tool_result 文本兜底:只在结构化 status 没有挂上硬信号时跑软启发式,避免双计。
+      const STRUCTURED = new Set(['arg_parse_error', 'unknown_tool', 'exec_error', 'policy_violation']);
       for (const e of toolResultEvents) {
+        const tcStatus = statusByCallId[e.data?.tool_call_id];
+        if (STRUCTURED.has(tcStatus)) continue;
         const result = String(e.data?.result || '');
-        if (/越界|禁止访问|权限|policy|unsafe/i.test(result)) {
-          pushSignal('safety_boundary', 'medium', `${e.data?.tool || 'tool'} 触发安全边界: ${this.truncate(result, 80)}`);
-        } else if (/失败|错误|不存在|异常|非法|invalid|error/i.test(result)) {
-          pushSignal('tool_observation_error', 'medium', `${e.data?.tool || 'tool'} 返回异常 observation: ${this.truncate(result, 80)}`);
+        if (/失败|错误|不存在|异常|非法|invalid|error/i.test(result)) {
+          pushSignal('tool_observation_error', 'medium',
+            `${e.data?.tool || 'tool'} 返回异常 observation: ${this.truncate(result, 80)}`);
         }
       }
 
@@ -3371,18 +3403,27 @@ function agentPlayground() {
         if (terminal && unexpected.length && active.expected_tools?.length) {
           pushSignal('wrong_tool', 'medium', `Benchmark 出现预期外工具: ${unexpected.join(', ')}。`);
         }
+        // expected_outcome === 'policy_block' 的 case:策略命中即成功,而不是失败信号。
+        const needsPolicy = active.expected_outcome === 'policy_block';
+        const policyOk = !needsPolicy || policyFired;
+        if (terminal && needsPolicy && !policyFired) {
+          pushSignal('tool_not_called', 'high', 'Benchmark 期望触发代码级策略拦截,但未观察到 policy_violation。');
+        }
         const serious = signals.some(s => s.severity === 'high');
+        const passing = terminal && missing.length === 0 && !serious && policyOk;
         benchmark = {
-          ok: terminal && missing.length === 0 && !serious,
+          ok: passing,
           summary: !terminal
             ? '等待运行完成后给出启发式判断。'
-            : (missing.length === 0 && !serious
-                ? '工具链符合预期,未发现高危失败信号。'
+            : (passing
+                ? (needsPolicy
+                    ? '工具链符合预期,代码级策略按预期拦下越权请求。'
+                    : '工具链符合预期,未发现高危失败信号。')
                 : '工具链或运行稳定性存在风险,见下方归因。'),
         };
       }
 
-      return {
+      const result = {
         tools,
         benchmark,
         metrics: [
@@ -3393,6 +3434,9 @@ function agentPlayground() {
         ],
         signals,
       };
+      diagCache.key = cacheKey;
+      diagCache.value = result;
+      return result;
     },
 
     eventColor(ev) {

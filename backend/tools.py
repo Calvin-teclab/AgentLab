@@ -25,12 +25,20 @@ WORKSPACE.mkdir(exist_ok=True)
 TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 
 
+class PolicyViolation(ValueError):
+    """工具层主动拒绝执行(越权/沙箱越界)。
+
+    单独的异常类型让 agent loop 能把它和普通的 exec_error 区分开,
+    在事件流里挂上 status="policy_violation",前端无需正则匹配中文文案。
+    """
+
+
 def _safe_path(user_path: str) -> Path:
-    """把用户路径限制在 WORKSPACE 内。越界直接 raise,由上层捕获转成工具错误。"""
+    """把用户路径限制在 WORKSPACE 内。越界 raise PolicyViolation,由上层识别。"""
     p = (WORKSPACE / user_path).resolve()
     workspace = str(WORKSPACE.resolve())
     if str(p) != workspace and not str(p).startswith(workspace + os.sep):
-        raise ValueError(f"路径 {user_path} 越界,禁止访问")
+        raise PolicyViolation(f"路径 {user_path} 越界,禁止访问")
     return p
 
 
@@ -67,6 +75,8 @@ def read_file(path: str) -> str:
         if len(content) > 2000:
             return content[:2000] + f"\n...(文件被截断,共 {len(content)} 字符)"
         return content
+    except PolicyViolation:
+        raise
     except Exception as e:
         return f"读取失败:{e}"
 
@@ -78,6 +88,8 @@ def write_file(path: str, content: str) -> str:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
         return f"已写入 {len(content)} 字符到 {path}"
+    except PolicyViolation:
+        raise
     except Exception as e:
         return f"写入失败:{e}"
 
@@ -94,6 +106,8 @@ def list_dir(path: str = ".") -> str:
             size = item.stat().st_size if item.is_file() else ""
             items.append(f"[{kind}] {item.name} {size}")
         return "\n".join(items) if items else "(空目录)"
+    except PolicyViolation:
+        raise
     except Exception as e:
         return f"列目录失败:{e}"
 
