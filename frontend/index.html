@@ -1862,29 +1862,75 @@
         </template>
       </div>
 
-      <!-- Benchmark Suite(带 expected_tools 断言) -->
+      <!-- Benchmark Suite(默认服务"逐项学习",批量回归是少数派入口) -->
       <div x-show="leftTab === 'eval'" class="mb-4 border-t pt-3">
-        <div class="flex items-center justify-between mb-2">
-          <div>
+        <div class="flex items-center justify-between mb-2 gap-2">
+          <div class="min-w-0">
             <div class="section-kicker">🎯 Benchmark 用例</div>
             <div class="text-[11px] text-gray-500">
-              「挂断言」让右栏 Diagnosis 对照预期工具链；「用作输入」把示例填进对话框。
+              点卡片「挂断言」+「用作输入」就能单跑;右栏 Diagnosis 会逐条对照断言。
             </div>
           </div>
-          <span class="metric-chip text-[11px]">
-            <span x-text="benchmarkCases.length"></span> cases
-          </span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="metric-chip text-[11px]">
+              <span x-text="benchmarkCases.length"></span> cases
+              <template x-if="batchSummary()">
+                <span class="ml-1" :class="batchSummary().passed === batchSummary().total ? 'text-green-700' : 'text-amber-700'">
+                  · <span x-text="batchSummary().passed + '/' + batchSummary().total"></span>
+                </span>
+              </template>
+            </span>
+            <!-- 批量回归 = 少数派入口(改完 prompt/模型后想看回归)。淡灰小字,不抢戏。 -->
+            <button x-show="!batchRunning"
+                    @click="runAllBenchmarks()"
+                    :disabled="isRunning || !benchmarkCases.length"
+                    class="text-[10px] text-gray-500 hover:text-gray-900 underline-offset-2 hover:underline
+                           disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="一次跑完所有 case,产出 pass-rate。改完 prompt/模型后做回归用">
+              批量回归 →
+            </button>
+            <button x-show="batchRunning"
+                    @click="stopBatchRun()"
+                    x-cloak
+                    class="text-[10px] px-1.5 py-0.5 rounded bg-red-700 text-stone-50 hover:bg-red-800">
+              ■ Stop
+            </button>
+          </div>
+        </div>
+
+        <!-- 批量进行中才显示这条窄进度条;不跑就完全藏起,避免抢学习视线 -->
+        <div x-show="batchRunning" x-cloak class="flex items-center gap-2 mb-2 text-[11px] text-gray-500 font-mono">
+          <span>running <span x-text="batchCursor + 1"></span>/<span x-text="benchmarkCases.length"></span>:</span>
+          <span x-text="benchmarkCases[batchCursor]?.title || ''"></span>
+        </div>
+        <div x-show="!batchRunning && batchSummary()" x-cloak class="mb-2 text-right">
+          <button @click="batchResults = {}; localStorage.removeItem('agent_pg_batch_results');"
+                  class="text-[10px] text-gray-400 hover:text-red-700">
+            清空批量结果
+          </button>
         </div>
         <template x-for="b in benchmarkCases" :key="b.id">
           <div class="eval-card block w-full text-left text-xs mb-2"
+               x-data="{ expanded: false }"
                :class="{ 'active': activeBenchmarkId === b.id }">
             <div class="flex items-center justify-between gap-2">
-              <div class="font-semibold text-gray-900" x-text="b.title"></div>
-              <span class="text-[10px] text-gray-500">max <span x-text="b.max_steps"></span></span>
+              <div class="flex items-center gap-2 min-w-0">
+                <!-- 批量结果徽章 (P1.4 通过 batchResults[b.id] 写入,P1.6 阶段先占位) -->
+                <span x-show="batchResults[b.id]"
+                      class="text-[10px] px-1.5 py-0 rounded font-semibold shrink-0"
+                      :class="batchResults[b.id]?.ok
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-700'"
+                      x-text="batchResults[b.id]?.ok ? '✓ pass' : '✗ fail'"
+                      x-cloak></span>
+                <div class="font-semibold text-gray-900 truncate" x-text="b.title"></div>
+              </div>
+              <span class="text-[10px] text-gray-500 shrink-0">max <span x-text="b.max_steps"></span></span>
             </div>
             <div class="text-gray-500 mt-1 font-mono text-[11px]" x-text="'“' + b.user_input + '”'"></div>
-            <div class="font-mono text-[10px] text-gray-400 mt-1" x-text="'expect: ' + b.expected_tools.join(' → ')"></div>
-            <div class="flex items-center gap-2 mt-2">
+            <div class="font-mono text-[10px] text-gray-400 mt-1"
+                 x-text="(b.expected_tool_order ? 'expect (ordered): ' : 'expect: ') + b.expected_tools.join(' → ')"></div>
+            <div class="flex items-center gap-2 mt-2 flex-wrap">
               <button @click="loadBenchmarkCase(b)"
                       class="text-[10px] px-2 py-0.5 rounded border"
                       :class="activeBenchmarkId === b.id
@@ -1895,6 +1941,63 @@
                       class="text-[10px] px-2 py-0.5 rounded border border-stone-300 text-gray-600 hover:bg-white">
                 → 用作输入
               </button>
+              <button @click="expanded = !expanded"
+                      class="text-[10px] px-2 py-0.5 rounded border border-stone-300 text-gray-600 hover:bg-white ml-auto"
+                      x-text="expanded ? '收起 ▴' : '展开 ▾'"></button>
+            </div>
+
+            <!-- 展开面板:PM 价值 / 成功判据 / 断言细则 / 标签 / 最近批量跑结果 -->
+            <div x-show="expanded" x-cloak class="mt-2 pt-2 border-t border-stone-200 space-y-1.5 text-[11px]">
+              <div>
+                <span class="font-semibold text-gray-700">PM 价值:</span>
+                <span class="text-gray-600" x-text="b.pm_value"></span>
+              </div>
+              <div>
+                <span class="font-semibold text-gray-700">成功判据:</span>
+                <span class="text-gray-600" x-text="b.success_criteria"></span>
+              </div>
+              <div x-show="(b.must_not_call || []).length" class="font-mono text-[10px] text-red-700">
+                must NOT call: <span x-text="(b.must_not_call || []).join(', ')"></span>
+              </div>
+              <div x-show="(b.final_answer_contains || []).length" class="font-mono text-[10px] text-gray-500">
+                final contains:
+                <template x-for="needle in (b.final_answer_contains || [])" :key="needle">
+                  <span class="inline-block bg-stone-100 rounded px-1 ml-1" x-text="'&quot;' + needle + '&quot;'"></span>
+                </template>
+              </div>
+              <div x-show="b.expected_outcome === 'policy_block'" class="font-mono text-[10px] text-amber-700">
+                expected outcome: policy_block (代码级沙箱必须命中)
+              </div>
+              <div x-show="(b.tags || []).length" class="flex gap-1 flex-wrap pt-0.5">
+                <template x-for="t in (b.tags || [])" :key="t">
+                  <span class="text-[10px] px-1.5 py-0 rounded bg-stone-100 text-gray-600 font-mono" x-text="t"></span>
+                </template>
+              </div>
+
+              <!-- 最近批量跑的结果(P1.4 落点) -->
+              <template x-if="batchResults[b.id]">
+                <div class="mt-2 pt-2 border-t border-stone-100">
+                  <div class="font-semibold text-gray-700 mb-1">
+                    最近批量跑:
+                    <span class="font-mono"
+                          :class="batchResults[b.id].ok ? 'text-green-700' : 'text-red-700'"
+                          x-text="batchResults[b.id].ok ? 'PASS' : 'FAIL'"></span>
+                    <span class="text-gray-400 font-mono ml-2"
+                          x-text="(batchResults[b.id].duration_ms/1000).toFixed(1) + 's · ' + batchResults[b.id].tokens + ' tokens'"></span>
+                  </div>
+                  <div class="font-mono text-[10px] text-gray-500 mb-1">
+                    actual: <span x-text="batchResults[b.id].tools.join(' → ') || 'none'"></span>
+                  </div>
+                  <template x-for="a in (batchResults[b.id].assertions || [])" :key="a.name">
+                    <div class="flex items-start gap-1 text-[10px]">
+                      <span :class="a.ok ? 'text-green-700' : (a.severity === 'soft' ? 'text-amber-700' : 'text-red-700')"
+                            x-text="a.ok ? '✓' : (a.severity === 'soft' ? '⚠' : '✗')"></span>
+                      <span class="text-gray-700" x-text="a.name"></span>
+                      <span class="text-gray-400 font-mono" x-text="'· ' + a.detail"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
             </div>
           </div>
         </template>
@@ -2216,6 +2319,19 @@
                    x-text="'expected: ' + (activeBenchmark()?.expected_tools || []).join(' → ')"></div>
               <div class="font-mono text-[10px] text-gray-400"
                    x-text="'actual: ' + (runDiagnosis().tools.length ? runDiagnosis().tools.join(' → ') : 'none')"></div>
+
+              <!-- 逐条 assertion 细则 — 学习者看的就是这一段:每条规则的对/错。 -->
+              <div x-show="runDiagnosis().assertions?.length" class="mt-2 pt-2 border-t border-stone-200 space-y-0.5">
+                <template x-for="a in runDiagnosis().assertions" :key="a.name">
+                  <div class="flex items-start gap-1.5 text-[11px]">
+                    <span class="font-mono shrink-0"
+                          :class="a.ok ? 'text-green-700' : (a.severity === 'soft' ? 'text-amber-700' : 'text-red-700')"
+                          x-text="a.ok ? '✓' : (a.severity === 'soft' ? '⚠' : '✗')"></span>
+                    <span class="text-gray-700" x-text="a.name"></span>
+                    <span class="text-gray-400 font-mono truncate" x-text="'· ' + a.detail"></span>
+                  </div>
+                </template>
+              </div>
             </div>
 
             <div class="section-kicker mb-2">Failure Attribution</div>
@@ -2319,6 +2435,13 @@ function agentPlayground() {
     failureTaxonomy: [],
     activeBenchmarkId: null,
     activeMassTemplateId: null,
+
+    // ========== 批量评估 (P1.4) ==========
+    // batchResults: { [case_id]: { ok, tools, signals, assertions, duration_ms, tokens, timestamp } }
+    // batchRunning: 整个批跑期间为 true; batchCursor: 当前正在跑第几个 case (0-based,-1 表示空闲)
+    batchResults: {},
+    batchRunning: false,
+    batchCursor: -1,
 
     // ========== 顶部通知(banner) ==========
     // notification: null | { title, detail, undoSnapshot, timer }
@@ -2424,6 +2547,12 @@ function agentPlayground() {
         if (tl) this.timeline  = JSON.parse(tl).map((e, i, a) => ({ ...e, _open: i === a.length - 1 }));
         if (td) this.tokenData = JSON.parse(td);
       } catch (e) { /* 数据损坏时静默忽略 */ }
+
+      // 恢复上次批量评估结果(用户重开页面后还能看到上一轮的徽章)
+      try {
+        const br = localStorage.getItem('agent_pg_batch_results');
+        if (br) this.batchResults = JSON.parse(br);
+      } catch (e) { this.batchResults = {}; }
 
       // 必须在任何可能调 resetSession/updateChart 的逻辑(如 enterLesson)之前建好 chart 实例,
       // 否则 updateChart 会在 chart 实例还没建好时拿不到引用,初始数据无法回填
@@ -3172,6 +3301,82 @@ function agentPlayground() {
       this.userInput = b.user_input;
     },
 
+    // ============ 批量评估 (P1.4) ============
+    // 顺序跑所有 benchmark cases。每条 case:
+    //   1) resetSession 清掉残留 timeline
+    //   2) override max_steps 为 case 自带值(避免 UI slider 把预算放宽,导致 loop_or_budget 永不触发)
+    //   3) 挂断言 + 灌 user_input,await send() 直到 SSE 流自然结束
+    //   4) 此刻 diagCache 已是当 case 的最终诊断,snapshot 进 batchResults
+    // cancel 通过把 batchRunning 翻 false + 调 cancelRun() abort 当前 SSE。
+    async runAllBenchmarks() {
+      if (this.isRunning || this.batchRunning) return;
+      if (!this.benchmarkCases.length) return;
+      if (!confirm(`将依次跑 ${this.benchmarkCases.length} 条 benchmark cases。每条都会真实调用模型,产生 token 成本。继续?`)) return;
+
+      this.batchRunning = true;
+      this.batchResults = {};
+      const savedMaxSteps = this.maxSteps;
+
+      try {
+        for (let i = 0; i < this.benchmarkCases.length; i++) {
+          if (!this.batchRunning) break;
+          this.batchCursor = i;
+          const c = this.benchmarkCases[i];
+
+          this.resetSession();
+          this.activeBenchmarkId = c.id;
+          this.userInput = c.user_input;
+          this.maxSteps = c.max_steps || savedMaxSteps;
+
+          const t0 = Date.now();
+          try {
+            await this.send();
+          } catch (e) {
+            // send() 内部已把 AbortError / 一般异常吞掉并写进 timeline,这里不应再走到
+            console.warn('[batch] send threw:', e);
+          }
+
+          // 防御:批量跑期间用户若点了其它卡片的「挂上断言」,activeBenchmarkId 会被改走,
+          // 导致 runDiagnosis 诊断到错 case。snapshot 前重新 pin 回当前 case。
+          this.activeBenchmarkId = c.id;
+          // send() 结束时 timeline 已经包含 final_answer / max_steps / error 之一。
+          // diagCache 此刻是这个 case 的最终诊断。
+          const diag = this.runDiagnosis();
+          this.batchResults[c.id] = {
+            case_id: c.id,
+            title: c.title,
+            ok: diag.benchmark?.ok || false,
+            tools: diag.tools,
+            signals: diag.signals,
+            assertions: diag.assertions || [],
+            tokens: this.totalTokens,
+            duration_ms: Date.now() - t0,
+            timestamp: new Date().toISOString(),
+          };
+        }
+      } finally {
+        this.maxSteps = savedMaxSteps;
+        this.batchRunning = false;
+        this.batchCursor = -1;
+        // 批量结束清掉 activeBenchmarkId,避免最后一条 case 残留"✓ 已挂断言"误导用户。
+        this.activeBenchmarkId = null;
+        try { localStorage.setItem('agent_pg_batch_results', JSON.stringify(this.batchResults)); } catch(e) {}
+      }
+    },
+
+    stopBatchRun() {
+      // 翻旗 → 主循环下一次迭代会 break;同时 abort 当前进行中的 SSE。
+      this.batchRunning = false;
+      if (this.isRunning) this.cancelRun();
+    },
+
+    batchSummary() {
+      const ids = Object.keys(this.batchResults);
+      if (!ids.length) return null;
+      const passed = ids.filter(id => this.batchResults[id].ok).length;
+      return { passed, total: ids.length };
+    },
+
     activeBenchmark() {
       return this.benchmarkCases.find(b => b.id === this.activeBenchmarkId) || null;
     },
@@ -3392,40 +3597,126 @@ function agentPlayground() {
         }
       }
 
+      // ============ Assertion DSL (P1.5) ============
+      // 每个 case 上的字段被翻译成结构化 assertions。hard 失败 → 高危 signal + benchmark.ok=false;
+      // soft 失败(预算超额)只 emit medium signal。assertions 数组保留下来给 batch 结果面板用。
       let benchmark = null;
+      const assertions = [];
       const active = this.activeBenchmark();
       if (active) {
-        const missing = (active.expected_tools || []).filter(t => !tools.includes(t));
-        const unexpected = tools.filter(t => !(active.expected_tools || []).includes(t));
-        if (terminal && missing.length) {
-          pushSignal('tool_not_called', 'high', `Benchmark 缺少预期工具: ${missing.join(', ')}。`);
+        const orderRequired = !!active.expected_tool_order;
+        const exp = active.expected_tools || [];
+        const missing = exp.filter(t => !tools.includes(t));
+        const unexpected = tools.filter(t => !exp.includes(t));
+
+        // 1. expected_tools / expected_tool_order — 互斥 push 信号,避免双计。
+        if (orderRequired && exp.length) {
+          const subseqOk = (() => {
+            let i = 0;
+            for (const t of tools) if (i < exp.length && t === exp[i]) i++;
+            return i === exp.length;
+          })();
+          assertions.push({
+            name: '工具顺序', ok: subseqOk, severity: 'hard',
+            detail: `期望 ${exp.join(' → ')} / 实际 ${tools.join(' → ') || 'none'}`,
+          });
+          if (terminal && !subseqOk) {
+            pushSignal('tool_not_called', 'high',
+              `工具顺序不符: 期望 ${exp.join(' → ')}, 实际 ${tools.join(' → ') || 'none'}。`);
+          }
+        } else if (exp.length) {
+          const setOk = missing.length === 0;
+          assertions.push({
+            name: '预期工具集合', ok: setOk, severity: 'hard',
+            detail: setOk ? `已覆盖 ${exp.join(', ')}` : `缺少 ${missing.join(', ')}`,
+          });
+          if (terminal && !setOk) {
+            pushSignal('tool_not_called', 'high', `Benchmark 缺少预期工具: ${missing.join(', ')}。`);
+          }
         }
-        if (terminal && unexpected.length && active.expected_tools?.length) {
+        if (terminal && unexpected.length && exp.length) {
           pushSignal('wrong_tool', 'medium', `Benchmark 出现预期外工具: ${unexpected.join(', ')}。`);
         }
-        // expected_outcome === 'policy_block' 的 case:策略命中即成功,而不是失败信号。
+
+        // 2. expected_outcome=policy_block — 必须看到 policy_violation。
         const needsPolicy = active.expected_outcome === 'policy_block';
         const policyOk = !needsPolicy || policyFired;
-        if (terminal && needsPolicy && !policyFired) {
-          pushSignal('tool_not_called', 'high', 'Benchmark 期望触发代码级策略拦截,但未观察到 policy_violation。');
+        if (needsPolicy) {
+          assertions.push({
+            name: '代码级策略拦截', ok: policyOk, severity: 'hard',
+            detail: policyOk ? '观察到 policy_violation' : '未触发 policy_violation',
+          });
+          if (terminal && !policyOk) {
+            pushSignal('tool_not_called', 'high', 'Benchmark 期望触发代码级策略拦截,但未观察到 policy_violation。');
+          }
         }
+
+        // 3. must_not_call — 列表里任何工具被调用即 hard fail。
+        for (const banned of (active.must_not_call || [])) {
+          const called = tools.includes(banned);
+          assertions.push({
+            name: `禁用工具 ${banned}`, ok: !called, severity: 'hard',
+            detail: called ? '出现在工具链中' : '未调用',
+          });
+          if (terminal && called) {
+            pushSignal('wrong_tool', 'high', `调用了禁用工具 ${banned}。`);
+          }
+        }
+
+        // 4. final_answer_contains — AND-of-substrings。
+        const needles = active.final_answer_contains || [];
+        if (needles.length) {
+          const finalEv = this.timeline.find(e => e.event === 'final_answer');
+          const finalText = String(finalEv?.data?.content || '');
+          for (const needle of needles) {
+            const hit = finalText.includes(needle);
+            assertions.push({
+              name: `final 含 "${needle}"`, ok: hit, severity: 'hard',
+              detail: hit ? '已出现' : '未出现',
+            });
+            if (terminal && !hit) {
+              pushSignal('tool_observation_error', 'high', `最终回复缺少关键字 "${needle}"。`);
+            }
+          }
+        }
+
+        // 5. 软预算 — 仅在 case 设了数值时检查;不影响 benchmark.ok,只 emit warning。
+        if (typeof active.max_tokens === 'number' && this.totalTokens > active.max_tokens) {
+          assertions.push({
+            name: `token 预算 ≤ ${active.max_tokens}`, ok: false, severity: 'soft',
+            detail: `actual ${this.totalTokens}`,
+          });
+          pushSignal('loop_or_budget', 'medium',
+            `tokens=${this.totalTokens} 超过预算 ${active.max_tokens}。`);
+        }
+        if (typeof active.max_latency_s === 'number' && totalLatency > active.max_latency_s) {
+          assertions.push({
+            name: `延迟预算 ≤ ${active.max_latency_s}s`, ok: false, severity: 'soft',
+            detail: `actual ${totalLatency.toFixed(1)}s`,
+          });
+          pushSignal('loop_or_budget', 'medium',
+            `latency=${totalLatency.toFixed(1)}s 超过预算 ${active.max_latency_s}s。`);
+        }
+
+        const hardAssertionsOk = assertions.filter(a => a.severity === 'hard').every(a => a.ok);
         const serious = signals.some(s => s.severity === 'high');
-        const passing = terminal && missing.length === 0 && !serious && policyOk;
+        const passing = terminal && hardAssertionsOk && !serious;
         benchmark = {
           ok: passing,
           summary: !terminal
             ? '等待运行完成后给出启发式判断。'
             : (passing
                 ? (needsPolicy
-                    ? '工具链符合预期,代码级策略按预期拦下越权请求。'
-                    : '工具链符合预期,未发现高危失败信号。')
-                : '工具链或运行稳定性存在风险,见下方归因。'),
+                    ? '所有 hard 断言通过,代码级策略按预期拦下越权请求。'
+                    : '所有 hard 断言通过,未发现高危失败信号。')
+                : '存在未通过的 hard 断言或高危失败信号,见下方归因。'),
         };
       }
 
       const result = {
         tools,
         benchmark,
+        assertions,
         metrics: [
           { label: 'LLM Steps', value: String(llmEvents.length) },
           { label: 'Tool Calls', value: String(toolCallEvents.length) },
