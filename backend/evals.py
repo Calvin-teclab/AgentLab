@@ -170,7 +170,122 @@ MASS_TEMPLATES: List[Dict[str, Any]] = [
             "订单 OD-2026-001 明天收不到我就投诉,帮我处理。",
         ],
         "metrics": ["自动化率", "转人工率", "工具误用率", "平均处理成本"],
-    }
+    },
+    {
+        "id": "rag_kb",
+        "title": "知识库问答 Agent",
+        "subtitle": "RAG 检索 → 引用 → 回答 / 检索失败时拒答",
+        "system_prompt": (
+            "你是知识库问答 Agent。所有答案必须基于检索到的内容,不允许凭空生成事实。\n\n"
+            "工作原则:\n"
+            "1. 任何具体问题(产品功能、参数、流程)先调 search_kb 检索相关片段。\n"
+            "2. 给出结论时必须调 cite,把答案依据的 chunk_id 列出来。\n"
+            "3. 若 search_kb 返回为空或不相关,如实告知用户「知识库中没找到相关内容」,不要硬编。\n"
+            "4. 闲聊和泛问不需要检索,直接回答即可。"
+        ),
+        "enabled_tools": ["search_kb", "cite"],
+        "manual_tools": [],
+        "custom_tools": [
+            {
+                "name": "search_kb",
+                "description": (
+                    "在产品知识库中检索相关片段。适用场景:用户问产品功能、配置、定价、"
+                    "API 用法等具体技术问题。不适用:闲聊、情绪话题、纯主观问题。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "检索词,自然语言或关键词"},
+                        "top_k": {"type": "integer", "description": "返回片段数,默认 3"},
+                    },
+                    "required": ["query"],
+                },
+                "response_template": (
+                    "[mock retrieval] query = {{arg.query}}\n"
+                    "chunk_1 (doc_id=PRD-API-v3, score=0.87): 「批量接口的速率限制是 600 RPM,"
+                    "突发 1200。超额按 429 返回。」\n"
+                    "chunk_2 (doc_id=PRD-API-v3, score=0.74): 「企业版可向 sales 申请专属配额,"
+                    "默认 3000 RPM。」\n"
+                    "chunk_3 (doc_id=PRD-FAQ-2025, score=0.41): 「常见错误码:401 鉴权、429 限流、"
+                    "500 内部错误。」"
+                ),
+            },
+            {
+                "name": "cite",
+                "description": (
+                    "声明本次回答所依据的知识库片段 ID。每次给用户最终答案前必须调用。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "chunk_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "依据的 chunk_id 列表",
+                        }
+                    },
+                    "required": ["chunk_ids"],
+                },
+                "response_template": "已记录引用: {{arg.chunk_ids}}",
+            },
+        ],
+        "example_prompts": [
+            "你们 API 的速率限制是多少?",
+            "企业客户能不能要更高的配额?",
+            "429 是什么意思?",
+        ],
+        "metrics": ["引用覆盖率", "拒答率", "幻觉率", "平均 chunks/answer"],
+    },
+    {
+        "id": "data_analyst",
+        "title": "数据分析 Agent",
+        "subtitle": "拉指标 → 计算派生值 → 结论",
+        "system_prompt": (
+            "你是数据分析助手。所有数值结论都必须从 query_metric 拉真实数据 + calculator "
+            "做派生计算,不允许心算或编数据。\n\n"
+            "工作原则:\n"
+            "1. 用户问指标(DAU/留存/转化等)时,先调 query_metric 取数据。\n"
+            "2. 任何派生计算(均值、同比、环比)必须用 calculator。\n"
+            "3. 给结论时先说数字再说判断,标明对比的时间窗。\n"
+            "4. 不确定指标名时反问用户,不要猜。"
+        ),
+        "enabled_tools": ["query_metric", "calculator"],
+        "manual_tools": [],
+        "custom_tools": [
+            {
+                "name": "query_metric",
+                "description": (
+                    "查询业务指标的时间序列数据。适用场景:DAU、MAU、留存、转化率、GMV 等。"
+                    "返回 mock 的近 7 天数值数组。不适用:非数值类描述性问题。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "metric": {
+                            "type": "string",
+                            "description": "指标名,例如 dau, mau, retention_d7, gmv",
+                        },
+                        "range": {
+                            "type": "string",
+                            "description": "时间窗,例如 last_7d / last_30d",
+                        },
+                    },
+                    "required": ["metric"],
+                },
+                "response_template": (
+                    "[mock] metric = {{arg.metric}}, range = {{arg.range}}\n"
+                    "日序列(近 7 天): 12340, 12810, 13050, 12990, 13420, 14010, 14250\n"
+                    "上一周期同长度: 11920, 12010, 12350, 12180, 12490, 12780, 12990"
+                ),
+            },
+        ],
+        "example_prompts": [
+            "最近 7 天 DAU 是多少?和上周比涨了多少?",
+            "算一下 7 日留存的环比。",
+            "上周 GMV 平均每天多少?",
+        ],
+        "metrics": ["数据引用率", "计算工具使用率", "结论可追溯性", "幻觉率"],
+    },
 ]
 
 
