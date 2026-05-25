@@ -307,12 +307,16 @@ async def _run_agent_loop(
     manual_tools: List[str] = None,
     start_step: int = 1,
 ) -> AsyncGenerator[AgentEvent, None]:
+    """
+    max_steps 是整轮预算的上限(1-indexed 的最大 step 号),不是"从 start_step 再跑几步"。
+    续跑路径会传 start_step > 1,但仍用同一个 max_steps,这样人工暂停后剩余预算正确。
+    """
     tools_schema = build_tools_schema(enabled_tools, custom_tools or [])
     custom_tools_by_name = normalize_custom_tools(custom_tools or [])
     manual_tools_set = set(manual_tools or [])
     model = (model_override or "").strip() or _MODEL
 
-    for step in range(start_step, start_step + max_steps):
+    for step in range(start_step, max_steps + 1):
         try:
             resp = _llm_call(messages, tools_schema, model)
         except Exception as e:
@@ -486,5 +490,6 @@ async def continue_agent_after_tool(
         model_override=model_override,
         custom_tools=custom_tools,
         manual_tools=manual_tools,
+        start_step=current_step + 1,
     ):
         yield ev

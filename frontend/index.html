@@ -1598,7 +1598,11 @@
   <aside id="pane-left" class="pane">
 
     <!-- 课程模式: Lesson Card -->
-    <div x-show="mode === 'lesson'" class="bg-white rounded-lg border border-gray-200 p-5 flex-1 overflow-y-auto">
+    <!-- 课程模式下 lesson card + 下面的配置面板按 6:5 比例分高度,各自滚动。
+         课程任务步骤是主线,配置面板是动手区,两者必须都可见才能跑通 lesson 2-5。 -->
+    <div x-show="mode === 'lesson'"
+         class="bg-white rounded-lg border border-gray-200 p-5 overflow-y-auto"
+         style="flex: 6 1 0; min-height: 0;">
       <template x-if="currentLesson">
         <div>
           <div class="lesson-card">
@@ -1656,24 +1660,8 @@
             </button>
           </div>
 
-          <!-- 锁定的预设(只读展示) -->
-          <details class="lesson-setup">
-            <summary style="cursor: pointer; font-size: 11px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; font-weight: 700;">
-              本关预设 · 点开查看
-            </summary>
-            <div class="lesson-setup-row" style="margin-top: 10px;">
-              <span>System Prompt</span>
-              <code x-text="truncate(systemPrompt, 50)"></code>
-            </div>
-            <div class="lesson-setup-row">
-              <span>启用工具</span>
-              <code x-text="enabledTools.length ? enabledTools.join(', ') : '（无）'"></code>
-            </div>
-            <div class="lesson-setup-row">
-              <span>Max Steps</span>
-              <code x-text="maxSteps"></code>
-            </div>
-          </details>
+          <!-- 锁定的预设之前是只读展示,现在配置面板会显示真实可交互的控件并自动按
+               locked_config 灰锁不可改项,所以这块就移除避免重复。 -->
         </div>
       </template>
 
@@ -1684,8 +1672,12 @@
       </template>
     </div>
 
-    <!-- 自由模式: 配置面板 -->
-    <div x-show="mode === 'free'" class="bg-white rounded-lg border border-gray-200 p-4 flex-1 overflow-y-auto">
+    <!-- 配置面板 ─ 两个 mode 都显示。
+         课程模式下按 locked_config 选择性隐藏/灰锁控件,这样 lesson 2-5 的
+         "拖滑块 / 勾工具 / 切 prompt preset"指令真的能操作到。 -->
+    <div class="bg-white rounded-lg border border-gray-200 p-4 overflow-y-auto"
+         :class="mode === 'lesson' ? 'mt-3' : 'flex-1'"
+         :style="mode === 'lesson' ? 'flex: 5 1 0; min-height: 0;' : ''">
       <div class="flex items-center justify-between mb-4">
         <div>
           <div class="section-kicker">Control Plane</div>
@@ -1696,30 +1688,61 @@
         </div>
       </div>
 
+      <!-- 课程模式锁定提示 -->
+      <template x-if="mode === 'lesson' && lessonLockSummary().length">
+        <div class="mb-3 text-[11px] px-2 py-1.5 rounded bg-stone-100 border border-stone-200 text-stone-700">
+          🔒 本关锁定: <span class="font-semibold" x-text="lessonLockSummary().join(' · ')"></span>
+          <span class="text-stone-500"> — 改其它项即可,锁定项是这一关要"看见"的现象的前提</span>
+        </div>
+      </template>
+
       <div class="side-tabs">
         <button @click="leftTab = 'config'" :class="{ active: leftTab === 'config' }">Config</button>
-        <button @click="leftTab = 'tools'" :class="{ active: leftTab === 'tools' }">Tools</button>
-        <button @click="leftTab = 'eval'" :class="{ active: leftTab === 'eval' }">Eval</button>
+        <button x-show="tabVisible('tools')"
+                @click="leftTab = 'tools'" :class="{ active: leftTab === 'tools' }">Tools</button>
+        <button x-show="tabVisible('eval')"
+                @click="leftTab = 'eval'" :class="{ active: leftTab === 'eval' }">Eval</button>
       </div>
 
       <!-- System Prompt -->
       <div x-show="leftTab === 'config'" class="mb-4">
         <div class="flex items-center justify-between mb-1">
-          <label class="section-kicker">System Prompt</label>
-          <div class="flex gap-1">
+          <label class="section-kicker">
+            System Prompt
+            <span x-show="lockedFlag('system_prompt_editable') === false"
+                  class="ml-1 text-[10px] text-stone-500 font-normal">🔒 本关锁定</span>
+          </label>
+          <div class="flex gap-1" x-show="lockedFlag('system_prompt_editable') !== false">
             <template x-for="(preset, i) in systemPromptPresets" :key="i">
-              <button @click="systemPrompt = preset.prompt"
+              <button @click="applySystemPromptPreset(preset)"
+                      :title="preset.prompt"
                       class="text-[10px] px-2 py-0.5 rounded border border-gray-300
                              hover:bg-gray-900 hover:text-stone-50 text-gray-600 transition-colors">
-                <span x-text="preset.label"></span>
+                <span>载入</span><span x-text="preset.label"></span>
               </button>
             </template>
           </div>
         </div>
         <textarea x-model="systemPrompt"
+                  :readonly="lockedFlag('system_prompt_editable') === false"
+                  :class="lockedFlag('system_prompt_editable') === false ? 'bg-stone-50 text-stone-600 cursor-not-allowed' : ''"
                   class="w-full border rounded p-3 text-xs font-mono leading-snug"
                   rows="9"></textarea>
-        <p class="text-[11px] text-gray-400 mt-1">修改后,下次运行生效(不影响当前会话已有历史)</p>
+        <template x-if="!systemPromptStale()">
+          <p class="text-[11px] text-gray-400 mt-1">系统提示词写入 messages 的第 0 条;新会话开跑时生效。</p>
+        </template>
+        <template x-if="systemPromptStale()">
+          <div class="text-[11px] mt-1 px-2 py-1.5 rounded bg-amber-50 border border-amber-200 text-amber-800 flex items-start gap-2">
+            <span class="font-bold leading-none mt-0.5">!</span>
+            <div class="flex-1 min-w-0">
+              <div>当前会话仍在用上一段 system prompt,本次修改对正在跑的会话不生效。</div>
+              <button @click="resetSession()"
+                      class="mt-1 text-[11px] text-amber-900 underline-offset-2 hover:underline font-semibold">
+                🗑 清空会话让新 prompt 生效 →
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Mass Scenario 已迁移到顶部 pill,Eval tab 现在只装 Benchmark Suite -->
@@ -1729,19 +1752,24 @@
       </div>
 
       <!-- 工具勾选 -->
-      <div x-show="leftTab === 'tools'" class="mb-4">
-        <div class="flex items-center justify-between mb-2">
-          <label class="section-kicker">工具实验室</label>
-          <button @click="startNewTool()"
-                  class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-gray-900 hover:text-stone-50">
-            新增工具
-          </button>
-        </div>
-        <div class="text-[11px] text-gray-500 mb-2">
-          每个启用的工具可单独决定 <b>真实执行</b>（内置工具实跑 / mock 工具走模板）或 <b>人工返回</b>（暂停由你填 observation）。
-        </div>
+      <div x-show="leftTab === 'tools' && lockedFlag('tool_panel_visible') !== false" class="mb-4">
+        <!-- 工具实验室:课程模式下可按 custom_tools_visible 隐藏整段(新增/示例/编辑器) -->
+        <template x-if="lockedFlag('custom_tools_visible') !== false">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="section-kicker">工具实验室</label>
+              <button @click="startNewTool()"
+                      class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-gray-900 hover:text-stone-50">
+                新增工具
+              </button>
+            </div>
+            <div class="text-[11px] text-gray-500 mb-2">
+              每个启用的工具可单独决定 <b>真实执行</b>（内置工具实跑 / mock 工具走模板）或 <b>人工返回</b>（暂停由你填 observation）。
+            </div>
+          </div>
+        </template>
 
-        <div x-show="editingTool" class="mt-3 border border-stone-300 rounded p-3 bg-stone-50">
+        <div x-show="editingTool && lockedFlag('custom_tools_visible') !== false" class="mt-3 border border-stone-300 rounded p-3 bg-stone-50">
           <div class="flex items-center justify-between mb-2">
             <div class="section-kicker" x-text="toolDraft.originalName ? '编辑 Mock Tool' : '新增 Mock Tool'"></div>
             <button @click="closeToolEditor()" class="text-[11px] text-gray-500 hover:text-gray-900">关闭</button>
@@ -1777,7 +1805,8 @@
           </button>
         </div>
 
-        <div class="flex items-center gap-3 mt-2 text-[11px] text-gray-500">
+        <div x-show="lockedFlag('custom_tools_visible') !== false"
+             class="flex items-center gap-3 mt-2 text-[11px] text-gray-500">
           <button @click="addToolExamples()"
                   class="hover:text-gray-900 underline-offset-2 hover:underline">
             + 加入示例工具
@@ -1797,20 +1826,26 @@
         </div>
         <div class="tool-list">
           <template x-for="t in allTools()" :key="t.name">
-            <div class="mb-1.5 border rounded text-xs card-hover tool-card">
+            <div class="mb-1.5 border rounded text-xs card-hover tool-card"
+                 :class="toolEnableLocked() ? 'opacity-90' : ''">
               <div class="flex items-start gap-2">
-                <label class="flex-1 cursor-pointer min-w-0">
+                <label class="flex-1 cursor-pointer min-w-0"
+                       :class="toolEnableLocked() ? 'cursor-not-allowed' : ''">
                   <input type="checkbox" :value="t.name" x-model="enabledTools"
                          @change="onToolToggled(t.name)"
-                         class="mt-0.5 mr-2" />
+                         :disabled="toolEnableLocked()"
+                         :title="toolEnableLocked() ? '本关锁定了工具集合,不可勾选/取消' : ''"
+                         class="mt-0.5 mr-2 disabled:cursor-not-allowed" />
                   <span class="font-mono font-medium text-gray-800 break-all" x-text="t.name"></span>
                   <span class="badge ml-1"
                         :class="t.source === 'custom' ? 'bg-cyan-100 text-cyan-700' : 'bg-stone-100 text-stone-700'"
                         x-text="t.source === 'custom' ? 'mock' : 'built-in'"></span>
+                  <span x-show="toolEnableLocked() && enabledTools.includes(t.name)"
+                        class="badge ml-1 bg-stone-200 text-stone-700" title="本关锁定">🔒</span>
                   <div class="tool-description text-gray-500 mt-0.5" :title="t.description" x-text="t.description"></div>
                 </label>
                 <div class="flex flex-col items-end gap-1 shrink-0">
-                  <!-- 模式切换：仅在工具勾选后显示 -->
+                  <!-- 模式切换:课程模式下仍允许(lesson 2 的核心动作就是切🤖/✋) -->
                   <button x-show="enabledTools.includes(t.name)"
                           @click.stop="toggleManualTool(t.name)"
                           class="text-[10px] px-2 py-0.5 rounded border font-medium"
@@ -1822,7 +1857,8 @@
                                   : '当前：真实执行（点击切换为人工返回）'">
                     <span x-text="manualTools.includes(t.name) ? '✋ 人工' : '🤖 真实'"></span>
                   </button>
-                  <div class="flex gap-1">
+                  <!-- 复制/编辑/删除属于"塑形 mock 工具"操作,跟 custom_tools_visible 同步 -->
+                  <div class="flex gap-1" x-show="lockedFlag('custom_tools_visible') !== false">
                     <button @click="duplicateTool(t)"
                             class="text-[10px] px-2 py-0.5 rounded border border-gray-300 hover:bg-white">
                       复制
@@ -1843,8 +1879,8 @@
         </div>
       </div>
 
-      <!-- MAX_STEPS -->
-      <div x-show="leftTab === 'config'" class="mb-4">
+      <!-- MAX_STEPS — 课程模式按 max_steps_visible 决定是否展示(lesson 3 的核心操作) -->
+      <div x-show="leftTab === 'config' && lockedFlag('max_steps_visible') !== false" class="mb-4">
         <label class="section-kicker block mb-1">
           MAX_STEPS: <span class="font-mono" x-text="maxSteps"></span>
         </label>
@@ -2049,7 +2085,7 @@
       </button>
 
       <!-- 示例任务已迁移到 Eval tab,作为"无断言用例"统一管理 -->
-      <div x-show="leftTab === 'config'" class="mt-5 border-t pt-3 text-[11px] text-gray-400 italic">
+      <div x-show="leftTab === 'config' && tabVisible('eval')" class="mt-5 border-t pt-3 text-[11px] text-gray-400 italic">
         想快速塞一句对话?去 <button @click="leftTab = 'eval'"
         class="text-amber-700 hover:underline font-semibold not-italic">Eval tab</button>
         的"无断言用例"区——所有可点击试跑的输入都收在那里。
@@ -2944,6 +2980,16 @@ function agentPlayground() {
       return this.tokenData.some(d => d.estimated);
     },
 
+    // 后端只在 history 为空时才用新 system_prompt(backend/agent.py 的设计:
+    // 前端完全掌握"新会话/续上"语义)。所以一旦有了 history,UI 上改 prompt
+    // 不会影响正在跑的会话,得清空会话才生效。这个 getter 用来挂提示。
+    systemPromptStale() {
+      if (!this.history.length) return false;
+      const first = this.history[0];
+      if (!first || first.role !== 'system') return false;
+      return first.content !== this.systemPrompt;
+    },
+
     async consumeEventStream(resp) {
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
@@ -3268,6 +3314,27 @@ function agentPlayground() {
       }
     },
 
+    applySystemPromptPreset(preset) {
+      if (!preset) return;
+      if (this.systemPrompt === preset.prompt) return;
+
+      // 当前 prompt 不属于任何 preset → 被场景或用户改过,覆盖前先问一句,
+      // 防止用户以为按钮是"查看"结果把场景/自定义 prompt 静默冲掉。
+      const isCurrentAPreset = this.systemPromptPresets.some(p => p.prompt === this.systemPrompt);
+      if (!isCurrentAPreset) {
+        const scenarioTitle = this.activeMassTemplate()?.title;
+        const source = scenarioTitle
+          ? `当前 system prompt 来自场景"${scenarioTitle}"`
+          : '当前 system prompt 是你自定义的内容';
+        // 只换 prompt,不动场景 id / 工具 —— 跟用户手改 textarea 同语义,
+        // 由 scenarioStateFingerprint 的 touched 检测兜底,避免出现"pill 没了但工具还在"的半截状态。
+        const ok = window.confirm(`${source},点击"载入${preset.label}"会把它覆盖掉(场景的工具配置不会动,需要的话再点 pill 的 ✕)。\n\n确定继续?`);
+        if (!ok) return;
+      }
+
+      this.systemPrompt = preset.prompt;
+    },
+
     applyMassTemplate(tpl) {
       if (!tpl) return;
       // 1. 仅当"从无场景进入场景"时才快照,A→B 不动它(确保 clear 总能回到任何场景之前)
@@ -3499,12 +3566,53 @@ function agentPlayground() {
       return this.currentLesson?.locked_config || {};
     },
 
+    // 课程模式下读 locked_config[key],其它模式返回 undefined。
+    // 调用方约定:lockedFlag(x) === false → "本关锁定,隐藏/灰锁"。
+    // 自由模式恒为 undefined,所有控件正常显示。
+    lockedFlag(key) {
+      if (this.mode !== 'lesson') return undefined;
+      return this.lockedConfig?.[key];
+    },
+
+    // 课程模式下 enabled_tools 数组锁定 → 工具勾选框 disable。
+    // 注意:🤖/✋ 切换不算锁(lesson 2 的核心动作就是切),所以单开一个 helper。
+    toolEnableLocked() {
+      return this.mode === 'lesson' && Array.isArray(this.lockedConfig?.enabled_tools);
+    },
+
+    // tab button 是否在当前 mode 下可见。
+    // Tools tab: 课程模式下按 tool_panel_visible(默认显示);自由模式恒显示。
+    // Eval tab: 课程模式恒隐藏(benchmark/批量回归不属于关卡动线);自由模式恒显示。
+    tabVisible(tab) {
+      if (this.mode !== 'lesson') return true;
+      if (tab === 'tools') return this.lockedFlag('tool_panel_visible') !== false;
+      if (tab === 'eval') return false;
+      return true;  // config 永远可见
+    },
+
+    // 给配置面板顶部那条"🔒 本关锁定"提示用:把当前关卡锁了什么列成短词组。
+    // 没锁就返回空数组,模板会把整条提示藏掉。
+    lessonLockSummary() {
+      if (this.mode !== 'lesson') return [];
+      const c = this.lockedConfig || {};
+      const items = [];
+      if (c.system_prompt_editable === false) items.push('System Prompt');
+      if (Array.isArray(c.enabled_tools))     items.push('工具集合');
+      if (c.custom_tools_visible === false)   items.push('工具实验室');
+      if (c.max_steps_visible === false)      items.push('MAX_STEPS');
+      return items;
+    },
+
     setMode(m) {
       if (m === this.mode) return;
       this.mode = m;
       localStorage.setItem('agent_pg_mode', m);
       if (m === 'lesson' && !this.currentLessonId && this.lessons.length) {
         this.enterLesson(this.lessons[0].id);
+      } else if (m === 'lesson') {
+        // 已经选过关:切回课程模式时强制 leftTab 到允许的位置,
+        // 否则可能停留在 'eval' 上,出现空 tab。
+        if (!this.tabVisible(this.leftTab)) this.leftTab = 'config';
       }
     },
 
@@ -3530,6 +3638,9 @@ function agentPlayground() {
       if (Array.isArray(p.custom_tools))       this.customTools = p.custom_tools.slice();
       if (Array.isArray(p.manual_tools))       this.manualTools = p.manual_tools.slice();
       if (typeof p.max_steps === 'number')     this.maxSteps = p.max_steps;
+
+      // 关卡若隐藏 Tools/Eval tab,把 leftTab 校正到 Config,避免空白
+      if (!this.tabVisible(this.leftTab)) this.leftTab = 'config';
 
       // 进入新关卡 = 一次干净开始
       this.resetSession();
@@ -3670,8 +3781,19 @@ function agentPlayground() {
         signals.push({ code, severity, label: t.label, fix: t.fix, evidence, eventId });
       };
 
+      // error 事件按 message 子串分诊。loop_or_budget 仅保留给 max_steps + 重复调用,
+      // API key / 401 / 模型限流 / 网络异常各自归到 config_error / model_error / infra_error,
+      // 否则 PM 看到「循环失控」会去改 prompt,但真正问题在配置或上游。
+      const classifyError = (msg) => {
+        const s = String(msg || '').toLowerCase();
+        if (/api[_\s-]?key|unauthor|401|403|invalid[_\s-]?key|forbidden|permission/i.test(s)) return 'config_error';
+        if (/rate.?limit|429|quota|too many requests|server.?error|5\d\d|model|provider|sensitive|content.?policy|moderation/i.test(s)) return 'model_error';
+        if (/timeout|timed.?out|network|econn|fetch|sse|abort|connection|dns|unreachable/i.test(s)) return 'infra_error';
+        return 'model_error';
+      };
       for (const e of this.timeline.filter(e => e.event === 'error')) {
-        pushSignal('loop_or_budget', 'high', e.data?.error || '运行时错误。', e._id);
+        const code = classifyError(e.data?.error);
+        pushSignal(code, 'high', e.data?.error || '运行时错误。', e._id);
       }
       const maxStepsEv = this.timeline.find(e => e.event === 'max_steps');
       if (maxStepsEv) {

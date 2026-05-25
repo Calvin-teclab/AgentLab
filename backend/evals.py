@@ -316,6 +316,21 @@ FAILURE_TAXONOMY: List[Dict[str, str]] = [
         "fix": "设置 max_steps、重复调用检测和成本告警。",
     },
     {
+        "code": "config_error",
+        "label": "配置错误",
+        "fix": "检查后端 .env 的 ARK_API_KEY / ARK_BASE_URL / ARK_MODEL 是否正确,前端 endpoint 覆盖是否合法。",
+    },
+    {
+        "code": "model_error",
+        "label": "模型服务异常",
+        "fix": "上游 LLM 返回非 200(限流/服务故障/内容审核拦截)。换 endpoint、降并发、或观察供应商状态页。",
+    },
+    {
+        "code": "infra_error",
+        "label": "网络或基础设施异常",
+        "fix": "本地网络、SSE 断流、超时、连接被重置。检查代理 / VPN / 后端进程是否存活。",
+    },
+    {
         "code": "safety_boundary",
         "label": "安全边界生效",
         "fix": "代码级沙箱按预期拦下越权请求,继续保持,并补充人工审批兜底流程。",
