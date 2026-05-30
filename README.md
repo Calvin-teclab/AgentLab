@@ -1,8 +1,6 @@
-# Agent Playground
+# AgentLab
 
-> 一个可视化学习 Agent 底层逻辑的教学项目：用户通过前端配置和点击，直观看到 Agent 每一步的决策、工具调用、消息流转与 token 消耗。
-
-配套学习笔记：[从零手写 Agent：Step 1–4 学习笔记](./docs/agent_learning_notes.md)
+> 我自己用来折腾 Agent 底层逻辑的实验项目：通过前端配置和点击，直观地看到 Agent 每一步的决策、工具调用、消息流转与 token 消耗，方便我快速验证 prompt、工具描述和参数 schema 对模型行为的影响。
 
 ## 功能特性
 
@@ -22,7 +20,7 @@
 
 - **后端**：FastAPI + SSE 流式推送
 - **前端**：单 HTML + Tailwind CDN + Alpine.js + Chart.js（零构建、零 npm）
-- **LLM**：火山方舟 DeepSeek-V3（OpenAI 兼容协议，换 GPT/Claude 只需改环境变量）
+- **LLM**：OpenAI 兼容协议，已接入火山方舟（DeepSeek 等）和 Google Gemini，换其它模型只需改环境变量
 
 ## 快速开始
 
@@ -58,7 +56,7 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# 编辑 .env,填入你的 API key 和 model endpoint
+# 编辑 .env,填入你的 API key 和 model endpoint（ARK_* 或 GEMINI_*，至少配一组）
 ```
 
 ### 3. 启动后端
@@ -83,21 +81,20 @@ python3 -m http.server 5173
 ## 目录结构
 
 ```
-agent_playground/
+AgentLab/
 ├── backend/
 │   ├── main.py              # FastAPI 入口 + SSE 路由
-│   ├── agent.py             # Agent 核心循环(Step 4 骨架)
+│   ├── agent.py             # Agent 核心循环
 │   ├── tools.py             # 内置工具实现
 │   ├── schemas.py           # Pydantic 模型
+│   ├── evals.py             # benchmark / 场景模板 / 失败分类
+│   ├── lessons.py           # 内置引导关卡配置
 │   ├── requirements.txt
 │   ├── .env.example
 │   └── workspace/           # 沙箱目录(gitignore)
 ├── frontend/
 │   └── index.html           # 单页应用
-├── docs/
-│   └── agent_learning_notes.md   # 配套学习笔记
 ├── .gitignore
-├── LICENSE
 └── README.md
 ```
 
@@ -118,22 +115,15 @@ agent_playground/
    - token 消耗怎么涨
    - 本轮是否命中 benchmark 预期、失败应该归到哪类问题
 
-## 面试演示路径
-
-1. 在自由模式选择 Eval Suite 的「探索后读取」用例，运行后打开 Diagnosis，看预期工具链、实际工具链、token 和延迟。
-2. 修改 system prompt 或工具 description，再跑同一用例，说明如何用 benchmark 做 prompt / tool schema 回归。
-3. 应用「电商客服 Agent」Mass 场景模板，演示订单查询、退款政策和人工接管，说明 Agent 产品需要自动化率、转人工率和工具误用率等指标。
-4. 运行「越权拦截」用例，展示 workspace 沙箱和失败归因，强调安全边界必须落在代码层。
-
 ### 自定义工具实验
 
-「工具实验室」里的内置工具会真实执行，例如读写 `backend/workspace` 文件。用户新增的工具是教学用 mock 工具：
+「工具实验室」里的内置工具会真实执行，例如读写 `backend/workspace` 文件。自己新增的工具是 mock 工具：
 
 - `name`、`description`、`parameters` 会真实进入 LLM 的 `tools` schema，影响模型是否选择调用它
 - `response_template` 由后端执行时返回，可使用 `{{tool_name}}`、`{{args_json}}` 和 `{{arg.字段名}}`
 - 调用过程仍会出现在右侧时间轴和中间 messages 列表里，方便比较不同工具描述和参数结构带来的差异
 
-建议实验方式：
+常用实验方式：
 
 1. 复制一个内置工具，改成更宽泛或更具体的 description
 2. 新增两个功能相近但描述边界不同的 mock 工具
@@ -148,7 +138,7 @@ agent_playground/
 3. 前端把这段文本作为 `role=tool` 的消息写入 messages
 4. 后端继续请求模型，观察模型如何基于这个人工 observation 改变回答
 
-这适合测试：
+适合用来验证：
 
 - 工具返回错误、空结果或异常格式时，模型是否能纠正
 - 同一个 tool call 参数下，不同 observation 会让模型生成什么不同结论
@@ -156,7 +146,7 @@ agent_playground/
 
 ## 示例任务
 
-准备几个测试任务，让你体验不同难度的 Agent 行为：
+几个可以快速上手的测试任务：
 
 | 任务 | 预期步数 | 目的 |
 |---|---|---|
@@ -164,11 +154,3 @@ agent_playground/
 | `workspace 里有什么？` | 2 步 | 探索型工具 |
 | `算一下 scores.txt 所有人的平均分` | 4 步 | 多工具串联规划 |
 | `读一下 /etc/passwd` | 1 步 | 安全沙箱拦截 |
-
-## 许可
-
-MIT
-
-## 致谢
-
-本项目源自一次 agent 底层逻辑的学习过程。完整学习路径和设计思路见 [docs/agent_learning_notes.md](./docs/agent_learning_notes.md)。

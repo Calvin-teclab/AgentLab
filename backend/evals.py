@@ -1,5 +1,5 @@
 """
-Evaluation and scenario assets for Agent Playground.
+Evaluation and scenario assets for AgentLab.
 
 These definitions are intentionally lightweight. They make the product demo
 look at agent behavior through three PM-facing lenses:
@@ -318,7 +318,7 @@ FAILURE_TAXONOMY: List[Dict[str, str]] = [
     {
         "code": "config_error",
         "label": "配置错误",
-        "fix": "检查后端 .env 的 ARK_API_KEY / ARK_BASE_URL / ARK_MODEL 是否正确,前端 endpoint 覆盖是否合法。",
+        "fix": "检查后端 .env 的 *_API_KEY / *_BASE_URL / *_MODEL (ARK 或 GEMINI)是否正确,以及前端选的 provider / endpoint 覆盖是否合法。",
     },
     {
         "code": "model_error",

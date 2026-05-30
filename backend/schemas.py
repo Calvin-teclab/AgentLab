@@ -48,10 +48,17 @@ class RunAgentRequest(BaseModel):
         default_factory=list,
         description="之前的 messages 历史(不含本轮 user_input)",
     )
+    provider: Optional[str] = Field(
+        default=None,
+        description=(
+            "LLM 厂商,目前支持 'ark' / 'gemini'。"
+            "留空 → 用后端默认 (ark)。Key 与 base_url 都从后端 .env 读取,前端不可见。"
+        ),
+    )
     model_override: Optional[str] = Field(
         default=None,
         description=(
-            "可选:覆盖后端 .env 中的 ARK_MODEL。"
+            "可选:覆盖后端 .env 中的默认模型(ARK_MODEL / GEMINI_MODEL)。"
             "前端教学用,便于切换不同 endpoint。"
             "注意:API Key 永远只在后端,前端无法修改。"
         ),
@@ -74,7 +81,8 @@ class ContinueToolRequest(BaseModel):
         default_factory=list,
         description="当前 messages 历史,其中应包含尚未补 observation 的 assistant tool_call",
     )
-    model_override: Optional[str] = Field(default=None, description="可选:覆盖后端 .env 中的 ARK_MODEL")
+    provider: Optional[str] = Field(default=None, description="续跑时延用同一 provider ('ark' / 'gemini')")
+    model_override: Optional[str] = Field(default=None, description="可选:覆盖后端 .env 中的默认模型")
 
 
 class AgentEvent(BaseModel):

@@ -68,7 +68,7 @@ PY
 
 cleanup() {
   echo
-  echo "Stopping Agent Playground..."
+  echo "Stopping AgentLab..."
   [[ -n "${BACKEND_PID:-}" ]] && kill "$BACKEND_PID" >/dev/null 2>&1 || true
   [[ -n "${FRONTEND_PID:-}" ]] && kill "$FRONTEND_PID" >/dev/null 2>&1 || true
 }
@@ -103,7 +103,7 @@ FRONTEND_PID=$!
 
 cat <<EOF
 
-Agent Playground is running.
+AgentLab is running.
 
 Frontend: http://127.0.0.1:$FRONTEND_PORT
 Backend:  http://127.0.0.1:$BACKEND_PORT

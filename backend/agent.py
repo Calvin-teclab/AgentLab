@@ -23,13 +23,93 @@ from schemas import AgentEvent
 from tools import PolicyViolation, build_tools_schema, get_tool_impl, normalize_custom_tools
 
 
-# === LLM 客户端初始化 ==================================================
-# 用 OpenAI SDK 指到方舟端点。因为方舟兼容 OpenAI 协议,换 GPT/Claude 只需换环境变量。
-_client = OpenAI(
-    api_key=os.environ["ARK_API_KEY"],
-    base_url=os.environ.get("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
-)
-_MODEL = os.environ["ARK_MODEL"]
+# === Provider 注册表(多家 LLM 备选) ==================================
+# 设计:每家厂商提供一组 env 三件套 (API_KEY / MODEL / BASE_URL),
+# 客户端按需 lazy 创建。这样只配了其中一家也能启动,不会因为缺另一家的 key 直接崩。
+#
+# Ark   : 火山方舟,OpenAI 协议原生兼容
+# Gemini: 用 Google 的 OpenAI 兼容端点 (v1beta/openai/),无需新 SDK
+#         (https://ai.google.dev/gemini-api/docs/openai)
+_PROVIDER_CONFIG = {
+    "ark": {
+        "api_key_env": "ARK_API_KEY",
+        "model_env": "ARK_MODEL",
+        "base_url_env": "ARK_BASE_URL",
+        "default_base_url": "https://ark.cn-beijing.volces.com/api/v3",
+        "default_model": None,  # 必须显式配置
+        "label": "火山方舟 (DeepSeek 等)",
+    },
+    "gemini": {
+        "api_key_env": "GEMINI_API_KEY",
+        "model_env": "GEMINI_MODEL",
+        "base_url_env": "GEMINI_BASE_URL",
+        "default_base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "default_model": "gemini-flash-latest",
+        "label": "Google Gemini",
+    },
+}
+
+_DEFAULT_PROVIDER = "ark"
+
+# 已创建的客户端缓存:provider → OpenAI client
+_clients: Dict[str, OpenAI] = {}
+
+
+def _is_real_key(value: str) -> bool:
+    """过滤掉 .env.example 拷过来的占位符,避免前端把没真配的 provider 也显示出来。"""
+    if not value:
+        return False
+    v = value.strip().lower()
+    return not (
+        v.startswith("your_")
+        or v.endswith("_here")
+        or "api_key_here" in v
+        or v in {"changeme", "xxx", "todo"}
+    )
+
+
+def list_configured_providers() -> List[Dict[str, str]]:
+    """返回当前 .env 中已配 API Key 的 provider 列表(供前端切换 UI 使用)。"""
+    result = []
+    for name, cfg in _PROVIDER_CONFIG.items():
+        if _is_real_key(os.environ.get(cfg["api_key_env"], "")):
+            result.append({
+                "name": name,
+                "label": cfg["label"],
+                "default_model": os.environ.get(cfg["model_env"]) or cfg["default_model"] or "",
+            })
+    return result
+
+
+def _get_client_and_model(provider: str, model_override: str = None) -> Tuple[OpenAI, str]:
+    """按 provider 解析出 (OpenAI client, model 名)。客户端 lazy 创建并缓存。"""
+    provider = (provider or "").strip().lower() or _DEFAULT_PROVIDER
+    if provider not in _PROVIDER_CONFIG:
+        raise ValueError(f"未知的 provider: {provider}。可选:{list(_PROVIDER_CONFIG)}")
+
+    cfg = _PROVIDER_CONFIG[provider]
+    api_key = os.environ.get(cfg["api_key_env"])
+    if not api_key:
+        raise RuntimeError(
+            f"provider={provider} 未配置:请在 backend/.env 中设置 {cfg['api_key_env']}。"
+        )
+
+    if provider not in _clients:
+        _clients[provider] = OpenAI(
+            api_key=api_key,
+            base_url=os.environ.get(cfg["base_url_env"], cfg["default_base_url"]),
+        )
+
+    model = (model_override or "").strip() \
+        or os.environ.get(cfg["model_env"]) \
+        or cfg["default_model"] \
+        or ""
+    if not model:
+        raise RuntimeError(
+            f"provider={provider} 未指定模型:请在 .env 中设置 {cfg['model_env']},或在前端填 Endpoint 覆盖。"
+        )
+
+    return _clients[provider], model
 
 
 def _rough_token_count(value) -> int:
@@ -56,7 +136,7 @@ def _fallback_usage(messages: list, response_payload: dict) -> dict:
     }
 
 
-def _llm_call(messages: list, tools_schema: list, model: str) -> dict:
+def _llm_call(messages: list, tools_schema: list, provider: str, model_override: str) -> dict:
     """
     调一次 LLM 并返回结构化结果。
 
@@ -64,13 +144,14 @@ def _llm_call(messages: list, tools_schema: list, model: str) -> dict:
       1. 空的 tools=[] 某些模型会报错
       2. 不传等于告诉模型"就纯聊天",行为更稳定
     """
+    client, model = _get_client_and_model(provider, model_override)
     t0 = time.time()
     kwargs = {"model": model, "messages": messages}
     if tools_schema:
         kwargs["tools"] = tools_schema
         kwargs["tool_choice"] = "auto"
 
-    resp = _client.chat.completions.create(**kwargs)
+    resp = client.chat.completions.create(**kwargs)
     msg = resp.choices[0].message
     message_dict = msg.model_dump(exclude_none=True)
     response_payload = {
@@ -86,6 +167,8 @@ def _llm_call(messages: list, tools_schema: list, model: str) -> dict:
         "finish_reason": resp.choices[0].finish_reason,
         "usage": usage,
         "latency_s": round(time.time() - t0, 2),
+        "model": model,
+        "provider": provider or _DEFAULT_PROVIDER,
     }
 
 
@@ -302,6 +385,7 @@ async def _run_agent_loop(
     messages: List[dict],
     enabled_tools: List[str],
     max_steps: int,
+    provider: str = None,
     model_override: str = None,
     custom_tools: List[dict] = None,
     manual_tools: List[str] = None,
@@ -314,11 +398,10 @@ async def _run_agent_loop(
     tools_schema = build_tools_schema(enabled_tools, custom_tools or [])
     custom_tools_by_name = normalize_custom_tools(custom_tools or [])
     manual_tools_set = set(manual_tools or [])
-    model = (model_override or "").strip() or _MODEL
 
     for step in range(start_step, max_steps + 1):
         try:
-            resp = _llm_call(messages, tools_schema, model)
+            resp = _llm_call(messages, tools_schema, provider, model_override)
         except Exception as e:
             yield AgentEvent(event="error", step=step, data={"error": str(e)})
             return
@@ -335,6 +418,8 @@ async def _run_agent_loop(
                 "usage": resp["usage"],
                 "latency_s": resp["latency_s"],
                 "messages_len": len(messages),
+                "model": resp["model"],
+                "provider": resp["provider"],
             },
         )
 
@@ -374,6 +459,7 @@ async def run_agent(
     enabled_tools: List[str],
     max_steps: int,
     history: List[dict],
+    provider: str = None,
     model_override: str = None,
     custom_tools: List[dict] = None,
     manual_tools: List[str] = None,
@@ -410,6 +496,7 @@ async def run_agent(
         messages=messages,
         enabled_tools=enabled_tools,
         max_steps=max_steps,
+        provider=provider,
         model_override=model_override,
         custom_tools=custom_tools,
         manual_tools=manual_tools,
@@ -423,6 +510,7 @@ async def continue_agent_after_tool(
     enabled_tools: List[str],
     max_steps: int,
     history: List[dict],
+    provider: str = None,
     model_override: str = None,
     custom_tools: List[dict] = None,
     manual_tools: List[str] = None,
@@ -487,6 +575,7 @@ async def continue_agent_after_tool(
         messages=messages,
         enabled_tools=enabled_tools,
         max_steps=max_steps,
+        provider=provider,
         model_override=model_override,
         custom_tools=custom_tools,
         manual_tools=manual_tools,

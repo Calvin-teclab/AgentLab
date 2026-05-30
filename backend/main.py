@@ -25,14 +25,14 @@ from fastapi import FastAPI                                          # noqa: E40
 from fastapi.middleware.cors import CORSMiddleware                   # noqa: E402
 from sse_starlette.sse import EventSourceResponse                    # noqa: E402
 
-from agent import continue_agent_after_tool, run_agent                # noqa: E402
+from agent import continue_agent_after_tool, list_configured_providers, run_agent   # noqa: E402
 from evals import BENCHMARK_CASES, CHAT_EXAMPLES, FAILURE_TAXONOMY, MASS_TEMPLATES   # noqa: E402
 from lessons import LESSONS                                          # noqa: E402
 from schemas import ContinueToolRequest, RunAgentRequest              # noqa: E402
 from tools import TOOL_REGISTRY                                      # noqa: E402
 
 
-app = FastAPI(title="Agent Playground", version="0.1.0")
+app = FastAPI(title="AgentLab", version="0.1.0")
 
 # 允许前端跨域访问(前端可能直接 file:// 或 localhost:5173)
 app.add_middleware(
@@ -59,6 +59,19 @@ def list_tools():
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/providers")
+def providers():
+    """
+    返回后端实际配置好(读到了 API Key)的 LLM 厂商列表。
+    前端拿来渲染 provider 下拉,避免出现一个会 500 的选项。
+    """
+    configured = list_configured_providers()
+    return {
+        "providers": configured,
+        "default": configured[0]["name"] if configured else None,
+    }
 
 
 @app.get("/api/lessons")
@@ -95,6 +108,7 @@ async def run(req: RunAgentRequest):
                 enabled_tools=req.enabled_tools,
                 max_steps=req.max_steps,
                 history=req.history,
+                provider=req.provider,
                 model_override=req.model_override,
                 custom_tools=req.custom_tools,
                 manual_tools=req.manual_tools,
@@ -137,6 +151,7 @@ async def continue_after_tool(req: ContinueToolRequest):
                 enabled_tools=req.enabled_tools,
                 max_steps=req.max_steps,
                 history=req.history,
+                provider=req.provider,
                 model_override=req.model_override,
                 custom_tools=req.custom_tools,
                 manual_tools=req.manual_tools,

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Agent Playground — 可视化学习 Agent 底层逻辑</title>
+<title>AgentLab — 可视化 Agent 底层逻辑</title>
 
 <!-- 零构建技术栈:Tailwind CDN + Alpine.js + Chart.js + Split.js -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,38 +16,38 @@
 
 <style>
   /* =================================================================
-     Agent Playground — "Observatory" theme
-     Instrument-grade tech aesthetic. Single signal color (sodium amber).
+     AgentLab — "Observatory" theme
+     Instrument-grade tech aesthetic. Single signal color (electric teal).
      Fraunces (literary serif) + Geist (UI) + JetBrains Mono (code/labels).
      ================================================================= */
   :root {
     /* Surfaces */
-    --canvas:      #0a0b0f;
-    --canvas-2:    #0d0f14;
-    --surface:     #14161c;
-    --surface-2:   #191c23;
-    --surface-3:   #20242c;
-    --surface-elev:#262a33;
+    --canvas:      #06080d;
+    --canvas-2:    #0a0e15;
+    --surface:     #0f141c;
+    --surface-2:   #141b25;
+    --surface-3:   #1b2532;
+    --surface-elev:#22303f;
 
-    /* Ink scale (warm bone, never stark white) */
-    --ink:    #ece5d3;
-    --ink-2:  #b9b1a0;
-    --ink-3:  #807868;
-    --ink-4:  #4f4a42;
-    --ink-5:  #2d2b27;
+    /* Ink scale (cool slate, never stark white) */
+    --ink:    #e6edf3;
+    --ink-2:  #9fb2c0;
+    --ink-3:  #66808f;
+    --ink-4:  #3e515d;
+    --ink-5:  #28343c;
 
     /* Hairlines */
-    --line:        rgba(236, 229, 211, .07);
-    --line-strong: rgba(236, 229, 211, .14);
-    --line-bold:   rgba(236, 229, 211, .28);
+    --line:        rgba(210, 230, 240, .07);
+    --line-strong: rgba(210, 230, 240, .14);
+    --line-bold:   rgba(210, 230, 240, .28);
 
-    /* THE single signal color — sodium amber.
+    /* THE single signal color — electric teal/cyan.
        Used for ANY accent: active state, focus, pulse, brand. */
-    --signal:        #ffb02e;
-    --signal-2:      #ffc366;
-    --signal-deep:   #c97f10;
-    --signal-glow:   rgba(255, 176, 46, .14);
-    --signal-line:   rgba(255, 176, 46, .42);
+    --signal:        #2dd4bf;
+    --signal-2:      #5eead4;
+    --signal-deep:   #0f9b8e;
+    --signal-glow:   rgba(45, 212, 191, .16);
+    --signal-line:   rgba(45, 212, 191, .42);
 
     /* Status — used SPARINGLY, only for connection / completion / error */
     --ok:  #6ee7b7;
@@ -69,8 +69,8 @@
     color: var(--ink);
     background: var(--canvas);
     background-image:
-      radial-gradient(1200px 700px at 85% -8%, rgba(255, 176, 46, .035), transparent 60%),
-      radial-gradient(900px 600px at 5% 110%, rgba(255, 176, 46, .015), transparent 70%);
+      radial-gradient(1200px 700px at 85% -8%, rgba(45, 212, 191, .035), transparent 60%),
+      radial-gradient(900px 600px at 5% 110%, rgba(45, 212, 191, .015), transparent 70%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -81,8 +81,8 @@
     content: "";
     position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background-image:
-      linear-gradient(to right,  rgba(236, 229, 211, .018) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(236, 229, 211, .018) 1px, transparent 1px);
+      linear-gradient(to right,  rgba(210, 230, 240, .018) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(210, 230, 240, .018) 1px, transparent 1px);
     background-size: 56px 56px;
     mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 50%, transparent 100%);
   }
@@ -126,16 +126,20 @@
   }
   .hover\:bg-white:hover { background: var(--surface-3) !important; }
 
-  /* Tailwind colored badges → recolor as monochrome amber accents
+  /* Tailwind colored badges → recolor as monochrome teal accents
      (we want one signal color across the whole UI) */
   .bg-blue-100, .bg-purple-100, .bg-amber-100, .bg-cyan-50, .bg-cyan-100 {
-    background: rgba(255, 176, 46, .08) !important;
+    background: rgba(45, 212, 191, .08) !important;
   }
   .text-blue-700, .text-purple-700, .text-amber-700, .text-cyan-700 {
     color: var(--signal) !important;
   }
+  /* Catch every amber shade the markup uses so nothing reads warm */
+  .text-amber-600, .text-amber-800, .text-amber-900 { color: var(--signal-2) !important; }
+  .border-amber-200, .border-amber-300, .border-amber-400,
+  .border-amber-500, .border-amber-600 { border-color: var(--signal-line) !important; }
   .border-cyan-300 { border-color: var(--signal-line) !important; }
-  .bg-amber-50 { background: rgba(255, 176, 46, .05) !important; }
+  .bg-amber-50 { background: rgba(45, 212, 191, .05) !important; }
   .border-amber-600 { border-color: var(--signal) !important; }
 
   .bg-green-50, .bg-green-100 {
@@ -227,7 +231,7 @@
     font-size: 10.5px;
     letter-spacing: .04em;
     position: relative;
-    box-shadow: inset 0 0 0 1px rgba(255,176,46,.04), 0 0 24px -8px var(--signal-glow);
+    box-shadow: inset 0 0 0 1px rgba(45,212,191,.04), 0 0 24px -8px var(--signal-glow);
   }
   /* Viewfinder ticks on brand */
   .brand-mark::before, .brand-mark::after {
@@ -265,7 +269,7 @@
     left: 0; right: 0;
     background: rgba(20, 20, 24, .92);
     backdrop-filter: blur(8px) saturate(140%);
-    border-bottom: 1px solid rgba(255, 176, 46, .55);
+    border-bottom: 1px solid rgba(45, 212, 191, .55);
     font-family: var(--mono);
     z-index: 55;
     animation: bannerSlide .25s ease both;
@@ -277,7 +281,7 @@
   .notification-dot {
     width: 6px; height: 6px; border-radius: 50%;
     background: var(--signal);
-    box-shadow: 0 0 6px rgba(255, 176, 46, .8);
+    box-shadow: 0 0 6px rgba(45, 212, 191, .8);
     flex-shrink: 0;
   }
   @keyframes bannerSlide {
@@ -291,7 +295,7 @@
   main .bg-white {
     position: relative;
     box-shadow:
-      inset 0 1px 0 rgba(236, 229, 211, .025),
+      inset 0 1px 0 rgba(210, 230, 240, .025),
       0 24px 48px -24px rgba(0, 0, 0, .5);
   }
   main .bg-white::before,
@@ -365,6 +369,33 @@
     box-shadow: 0 0 0 1px var(--signal), 0 0 24px -8px var(--signal-glow) !important;
     background: var(--canvas-2) !important;
   }
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--surface-2) !important;
+    border: 1px solid var(--line-strong) !important;
+    color: var(--ink) !important;
+    outline: none;
+    font-family: var(--mono);
+    border-radius: 0 !important;
+    padding-right: 28px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%232dd4bf' stroke-width='1.4'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 9px center !important;
+    cursor: pointer;
+    transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+  }
+  select:hover { border-color: var(--signal-line) !important; }
+  select:focus {
+    border-color: var(--signal) !important;
+    box-shadow: 0 0 0 1px var(--signal), 0 0 24px -8px var(--signal-glow) !important;
+    background-color: var(--canvas-2) !important;
+  }
+  select option {
+    background: var(--surface) !important;
+    color: var(--ink) !important;
+  }
+
   input[type="checkbox"] {
     accent-color: var(--signal);
     width: 13px; height: 13px;
@@ -470,7 +501,7 @@
     border-radius: 4px;
   }
   @keyframes flash-jump {
-    from { background: rgba(245, 158, 11, 0.32); }
+    from { background: rgba(45, 212, 191, 0.32); }
     to   { background: transparent; }
   }
 
@@ -586,7 +617,7 @@
   }
   .tool-card:has(input[type="checkbox"]:checked) {
     border-color: var(--signal-line) !important;
-    background: rgba(255, 176, 46, .025) !important;
+    background: rgba(45, 212, 191, .025) !important;
   }
   .tool-card:has(input[type="checkbox"]:checked)::before {
     content: ""; position: absolute;
@@ -621,7 +652,7 @@
   .mode-toggle button:hover { color: var(--ink-2); }
   .mode-toggle button.active {
     color: var(--signal);
-    background: rgba(255, 176, 46, .06);
+    background: rgba(45, 212, 191, .06);
   }
   .mode-toggle button.active::after {
     content: ""; position: absolute;
@@ -675,7 +706,7 @@
     border-radius: 0 !important;
     box-shadow:
       0 22px 70px -28px rgba(0, 0, 0, .9),
-      inset 0 1px 0 rgba(236, 229, 211, .04) !important;
+      inset 0 1px 0 rgba(210, 230, 240, .04) !important;
     backdrop-filter: blur(18px) saturate(130%);
     overflow: hidden;
   }
@@ -697,7 +728,7 @@
     color: var(--ink);
   }
   .lesson-menu-item:last-child { border-bottom: none; }
-  .lesson-menu-item:hover { background: rgba(255, 176, 46, .06) !important; }
+  .lesson-menu-item:hover { background: rgba(45, 212, 191, .06) !important; }
   .lesson-menu-title {
     color: var(--ink);
     font-weight: 600;
@@ -715,11 +746,39 @@
     width: 20px;
     height: 20px;
     border: 1px solid var(--signal-line);
-    background: rgba(255, 176, 46, .1);
+    background: rgba(45, 212, 191, .1);
     color: var(--signal);
     font-family: var(--mono);
     font-size: 10px;
     font-weight: 600;
+  }
+  .lesson-menu-footer {
+    border-top: 1px solid var(--line);
+    padding: 8px;
+  }
+  .lesson-reset-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .lesson-reset-btn:hover {
+    color: #fda4af;
+    border-color: rgba(253, 164, 175, .42);
+    background: rgba(253, 164, 175, .08);
+  }
+  .lesson-reset-count {
+    font-size: 11px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
   }
 
   /* =====================================================
@@ -732,7 +791,7 @@
     border-radius: 0;
     padding: 28px 26px 26px 32px;
     box-shadow:
-      inset 0 1px 0 rgba(236, 229, 211, .03),
+      inset 0 1px 0 rgba(210, 230, 240, .03),
       0 30px 60px -30px rgba(0, 0, 0, .55);
   }
   /* Amber side-rail with terminal tick */
@@ -952,12 +1011,12 @@
     cursor: default;
   }
   .react-capsule.done {
-    background: rgba(255, 176, 46, .05);
+    background: rgba(45, 212, 191, .05);
     border-color: var(--signal-deep);
     color: var(--signal-2);
   }
   .react-capsule.current {
-    background: rgba(255, 176, 46, .12);
+    background: rgba(45, 212, 191, .12);
     border-color: var(--signal);
     color: var(--signal-2);
     box-shadow: 0 0 12px var(--signal-glow);
@@ -972,7 +1031,7 @@
   }
   @keyframes capsulePulse {
     0%, 100% { box-shadow: 0 0 8px var(--signal-glow); }
-    50%      { box-shadow: 0 0 18px rgba(255, 176, 46, .38); }
+    50%      { box-shadow: 0 0 18px rgba(45, 212, 191, .38); }
   }
 
   .bead-row { display: inline-flex; align-items: center; gap: 3px; line-height: 1; }
@@ -1070,7 +1129,7 @@
     color: var(--ink);
   }
   .step-instruction strong {
-    background: rgba(255, 176, 46, .07);
+    background: rgba(45, 212, 191, .07);
     color: var(--signal);
     padding: 1px 6px;
     border-radius: 0;
@@ -1096,7 +1155,7 @@
      Aha banner — literary reveal
      ===================================================== */
   .aha-banner {
-    background: linear-gradient(180deg, rgba(255, 176, 46, .06), transparent);
+    background: linear-gradient(180deg, rgba(45, 212, 191, .06), transparent);
     border: 1px solid var(--signal-line);
     border-radius: 0;
     padding: 18px 22px 20px;
@@ -1298,7 +1357,7 @@
   .icon-btn:hover {
     color: var(--signal);
     border-color: var(--signal-line);
-    background: rgba(255, 176, 46, .04);
+    background: rgba(45, 212, 191, .04);
   }
 
   /* =====================================================
@@ -1399,7 +1458,7 @@
   }
   .tab-btn:hover {
     color: var(--ink);
-    background: rgba(236, 229, 211, .04);
+    background: rgba(210, 230, 240, .04);
   }
   .tab-btn.active {
     background: var(--signal);
@@ -1466,9 +1525,9 @@
 <header class="app-topbar px-6 py-2 flex items-center justify-between flex-wrap gap-3">
   <div class="flex items-center gap-4">
     <div class="flex items-center gap-3">
-      <div class="brand-mark">AP</div>
+      <div class="brand-mark">AL</div>
       <div>
-        <div class="app-title">Agent Playground</div>
+        <div class="app-title">AgentLab</div>
         <div class="app-subtitle" x-text="mode === 'lesson' ? '课程模式 · 看见 agent 的每一步' : '自由模式 · eval + trace lab'"></div>
       </div>
     </div>
@@ -1501,6 +1560,12 @@
             <div class="lesson-menu-subtitle" x-text="l.subtitle"></div>
           </button>
         </template>
+        <div class="lesson-menu-footer" x-show="completedLessons.length > 0">
+          <button class="lesson-reset-btn" @click="resetLessonProgress()">
+            重置课程进度
+            <span class="lesson-reset-count" x-text="completedLessons.length + ' 关已完成'"></span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1543,11 +1608,25 @@
         <input type="text" x-model="backendUrl"
                class="w-full border rounded px-2 py-1 text-xs font-mono mb-2"
                placeholder="http://127.0.0.1:8000" />
-        <label class="section-kicker block mb-1" title="覆盖后端 .env 中的 ARK_MODEL,留空则用默认">Endpoint 覆盖</label>
+
+        <label class="section-kicker block mb-1" title="选择 LLM 厂商,后端按其加载对应 API Key/Base URL">Provider</label>
+        <template x-if="availableProviders.length === 0">
+          <p class="text-[10px] text-amber-600 mb-2">后端尚未配置任何 provider。请在 backend/.env 设置 ARK_* 或 GEMINI_*。</p>
+        </template>
+        <template x-if="availableProviders.length > 0">
+          <select x-model="provider"
+                  class="w-full border rounded px-2 py-1 text-xs font-mono mb-2">
+            <template x-for="p in availableProviders" :key="p.name">
+              <option :value="p.name" x-text="p.label + ' (' + p.name + ')'"></option>
+            </template>
+          </select>
+        </template>
+
+        <label class="section-kicker block mb-1" title="覆盖该 provider .env 里配置的默认模型,留空则用默认">模型覆盖</label>
         <input type="text" x-model="modelOverride"
                class="w-full border rounded px-2 py-1 text-xs font-mono"
-               placeholder="ep-xxxxxx (留空=默认)" />
-        <p class="text-[10px] text-gray-400 mt-2">API Key 永远只在后端 .env</p>
+               :placeholder="modelOverridePlaceholder" />
+        <p class="text-[10px] text-gray-400 mt-2">API Key 永远只在后端 .env。当前默认模型: <span class="font-mono" x-text="currentProviderDefaultModel || '(未配置)'"></span></p>
       </div>
     </details>
 
@@ -2477,6 +2556,8 @@ function agentPlayground() {
     backendUrl: 'http://127.0.0.1:8000',
     backendOnline: false,
     modelOverride: '',   // 空 = 用后端 .env 默认 endpoint
+    provider: '',        // 空 = 用后端默认 provider (通常是 ark)
+    availableProviders: [],  // 来自 GET /api/providers,根据后端真实配好哪几家来渲染
     leftTab: 'config',
     systemPrompt: `你是一个助手,可以使用提供的工具完成任务。
 
@@ -2618,12 +2699,14 @@ function agentPlayground() {
       const queryBackend = new URLSearchParams(window.location.search).get('backend');
       const savedBackend     = localStorage.getItem('agent_pg_backend');
       const savedModel       = localStorage.getItem('agent_pg_model');
+      const savedProvider    = localStorage.getItem('agent_pg_provider');
       const savedTools       = localStorage.getItem('agent_pg_custom_tools');
       const savedManualTools = localStorage.getItem('agent_pg_manual_tools');
       // 旧版本的全局开关 agent_pg_manual_tool_mode 已移除,直接忽略
       if (queryBackend) this.backendUrl = queryBackend;
       else if (savedBackend) this.backendUrl = savedBackend;
-      if (savedModel)   this.modelOverride = savedModel;
+      if (savedModel)    this.modelOverride = savedModel;
+      if (savedProvider) this.provider      = savedProvider;
       if (savedTools) {
         try { this.customTools = JSON.parse(savedTools); } catch(e) { this.customTools = []; }
       }
@@ -2671,6 +2754,7 @@ function agentPlayground() {
       // 持久化 config
       this.$watch('backendUrl',    v => localStorage.setItem('agent_pg_backend', v));
       this.$watch('modelOverride', v => localStorage.setItem('agent_pg_model', v));
+      this.$watch('provider',      v => localStorage.setItem('agent_pg_provider', v || ''));
       this.$watch('manualTools', v => {
         try { localStorage.setItem('agent_pg_manual_tools', JSON.stringify(v)); } catch(e){}
       });
@@ -2684,6 +2768,7 @@ function agentPlayground() {
 
       await this.checkHealth();
       await this.loadTools();
+      await this.loadProviders();
       await this.loadLessons();
       await this.loadEvalAssets();
 
@@ -2729,6 +2814,37 @@ function agentPlayground() {
       } catch (e) {
         console.warn('加载工具失败:', e);
       }
+    },
+
+    async loadProviders() {
+      // 根据后端实际配好的 API Key 决定下拉里出现哪几家。
+      // 兼容老后端: /api/providers 不存在时静默降级到 "只有方舟"。
+      try {
+        const r = await fetch(this.backendUrl + '/api/providers');
+        if (!r.ok) throw new Error('no providers endpoint');
+        const data = await r.json();
+        this.availableProviders = data.providers || [];
+        // 若本地存的 provider 不在已配置列表里(例如用户切了 .env),回退到后端 default
+        const names = this.availableProviders.map(p => p.name);
+        if (!this.provider || !names.includes(this.provider)) {
+          this.provider = data.default || (names[0] || '');
+        }
+      } catch (e) {
+        // 老后端没有这个路由 —— 沿用旧行为,只展示一个 "ark" 选项
+        this.availableProviders = [{ name: 'ark', label: '火山方舟 (DeepSeek 等)', default_model: '' }];
+        if (!this.provider) this.provider = 'ark';
+      }
+    },
+
+    get currentProviderDefaultModel() {
+      const p = this.availableProviders.find(p => p.name === this.provider);
+      return p ? p.default_model : '';
+    },
+
+    get modelOverridePlaceholder() {
+      if (this.provider === 'gemini') return 'gemini-2.5-flash / gemini-flash-latest';
+      if (this.provider === 'ark')    return 'ep-xxxxxx (留空=默认)';
+      return '(留空=默认)';
     },
 
     // 切换某个工具的"真实/人工"模式
@@ -2908,11 +3024,11 @@ function agentPlayground() {
         data: {
           labels: [],
           datasets: [
-            { label: 'prompt', data: [], borderColor: '#ffb02e',
-              backgroundColor: 'rgba(255,176,46,.12)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5, yAxisID: 'y' },
+            { label: 'prompt', data: [], borderColor: '#2dd4bf',
+              backgroundColor: 'rgba(45,212,191,.12)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5, yAxisID: 'y' },
             { label: 'completion', data: [], borderColor: '#6ee7b7',
               backgroundColor: 'rgba(110,231,183,.10)', tension: .32, fill: true, pointRadius: 3, pointHoverRadius: 5, yAxisID: 'y' },
-            { label: 'cumulative', data: [], borderColor: '#ff7a00',
+            { label: 'cumulative', data: [], borderColor: '#7dd3fc',
               backgroundColor: 'transparent', borderDash: [4, 4], tension: .32, fill: false, pointRadius: 2, pointHoverRadius: 4, yAxisID: 'y1' },
           ]
         },
@@ -2922,13 +3038,13 @@ function agentPlayground() {
           plugins: {
             legend: {
               position: 'bottom',
-              labels: { boxWidth: 10, color: '#807868', font: { family: 'JetBrains Mono', size: 10 } }
+              labels: { boxWidth: 10, color: '#66808f', font: { family: 'JetBrains Mono', size: 10 } }
             },
             tooltip: {
               backgroundColor: '#0d0f14',
-              titleColor: '#ece5d3',
-              bodyColor: '#b9b1a0',
-              borderColor: 'rgba(255,176,46,.42)',
+              titleColor: '#e6edf3',
+              bodyColor: '#9fb2c0',
+              borderColor: 'rgba(45,212,191,.42)',
               borderWidth: 1,
               displayColors: true,
             },
@@ -2937,21 +3053,21 @@ function agentPlayground() {
             y: {
               beginAtZero: true,
               position: 'left',
-              border: { color: '#d9d1bf' },
-              grid: { color: 'rgba(22,25,22,.08)' },
-              ticks: { color: '#807868', font: { family: 'JetBrains Mono', size: 10 } },
+              border: { color: '#3e515d' },
+              grid: { color: 'rgba(210,230,240,.06)' },
+              ticks: { color: '#66808f', font: { family: 'JetBrains Mono', size: 10 } },
             },
             y1: {
               beginAtZero: true,
               position: 'right',
-              border: { color: 'rgba(255,122,0,.5)' },
+              border: { color: 'rgba(125,211,252,.45)' },
               grid: { drawOnChartArea: false },
-              ticks: { color: '#ff7a00', font: { family: 'JetBrains Mono', size: 10 } },
+              ticks: { color: '#7dd3fc', font: { family: 'JetBrains Mono', size: 10 } },
             },
             x: {
-              border: { color: '#d9d1bf' },
-              grid: { color: 'rgba(22,25,22,.05)' },
-              ticks: { color: '#807868', font: { family: 'JetBrains Mono', size: 10 } },
+              border: { color: '#3e515d' },
+              grid: { color: 'rgba(210,230,240,.04)' },
+              ticks: { color: '#66808f', font: { family: 'JetBrains Mono', size: 10 } },
             },
           }
         }
@@ -3043,6 +3159,7 @@ function agentPlayground() {
         manual_tools: this.manualTools,
         max_steps: this.maxSteps,
         history: this.history,
+        provider: this.provider || null,
         model_override: this.modelOverride.trim() || null,
       };
 
@@ -3119,6 +3236,7 @@ function agentPlayground() {
         manual_tools: this.manualTools,
         max_steps: this.maxSteps,
         history: this.history,
+        provider: this.provider || null,
         model_override: this.modelOverride.trim() || null,
       };
 
@@ -3666,6 +3784,13 @@ function agentPlayground() {
       this.lessonComplete = true;
     },
 
+    resetLessonProgress() {
+      if (!confirm('清空全部课程完成记录?(只影响本机进度,不删任何课程内容)')) return;
+      this.completedLessons = [];
+      try { localStorage.removeItem('agent_pg_completed'); } catch (e) {}
+      this.lessonComplete = false;
+    },
+
     goToNextLesson() {
       const idx = this.lessons.findIndex(l => l.id === this.currentLessonId);
       const next = this.lessons[idx + 1];
@@ -3990,10 +4115,10 @@ function agentPlayground() {
       return ({
         user_input:    '#3b82f6',
         llm_response:  '#7c3aed',
-        tool_call:     '#d97706',
-        tool_input_required: '#0891b2',
-        tool_result:   '#23c55e',
-        final_answer:  '#0891b2',
+        tool_call:     '#2dd4bf',
+        tool_input_required: '#38bdf8',
+        tool_result:   '#34d399',
+        final_answer:  '#38bdf8',
         error:         '#dc2626',
         max_steps:     '#991b1b',
       })[ev] || '#9ca3af';
