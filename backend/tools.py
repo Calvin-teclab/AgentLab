@@ -58,6 +58,10 @@ def calculator(expression: str) -> str:
     if not set(expression) <= allowed:
         # 错误作为 observation 返回,不 raise
         return f"错误:表达式包含非法字符。只允许数字和 + - * / ( ) ."
+    # 禁掉幂运算:两个连续 * 会被 eval 当成 **,9**9**9 这类输入能瞬间吃满
+    # CPU/内存。幂运算本就不在本工具承诺的「加减乘除和括号」范围内,直接拦下。
+    if "**" in expression:
+        return "错误:不支持幂运算(**)。只支持加减乘除和括号。"
     try:
         result = eval(expression, {"__builtins__": {}}, {})
         return f"{expression} = {result}"

@@ -98,6 +98,9 @@ def _get_client_and_model(provider: str, model_override: str = None) -> Tuple[Op
         _clients[provider] = OpenAI(
             api_key=api_key,
             base_url=os.environ.get(cfg["base_url_env"], cfg["default_base_url"]),
+            # SDK 默认 600s,对交互式 SSE 流太长了:上游卡住会让整条时间轴干等
+            # 十分钟。教学场景设短一些,超时直接转成 error 事件喂回前端。
+            timeout=60,
         )
 
     model = (model_override or "").strip() \
@@ -445,6 +448,7 @@ async def _run_agent_loop(
 
     yield AgentEvent(
         event="max_steps",
+        step=max_steps,
         data={
             "max_steps": max_steps,
             "messages_snapshot": messages,
