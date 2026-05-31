@@ -25,7 +25,7 @@ from fastapi import FastAPI                                          # noqa: E40
 from fastapi.middleware.cors import CORSMiddleware                   # noqa: E402
 from sse_starlette.sse import EventSourceResponse                    # noqa: E402
 
-from agent import continue_agent_after_tool, list_configured_providers, run_agent   # noqa: E402
+from agent import EVENT_PROTOCOL_VERSION, continue_agent_after_tool, list_configured_providers, run_agent   # noqa: E402
 from evals import BENCHMARK_CASES, CHAT_EXAMPLES, FAILURE_TAXONOMY, MASS_TEMPLATES   # noqa: E402
 from lessons import LESSONS                                          # noqa: E402
 from schemas import ContinueToolRequest, RunAgentRequest              # noqa: E402
@@ -120,6 +120,7 @@ async def run(req: RunAgentRequest):
                         {
                             "event": ev.event,
                             "step": ev.step,
+                            "protocol_version": EVENT_PROTOCOL_VERSION,
                             "data": ev.data,
                         },
                         ensure_ascii=False,
@@ -129,7 +130,13 @@ async def run(req: RunAgentRequest):
         except Exception as e:
             yield {
                 "event": "error",
-                "data": json.dumps({"event": "error", "data": {"error": str(e)}}),
+                "data": json.dumps(
+                    {
+                        "event": "error",
+                        "protocol_version": EVENT_PROTOCOL_VERSION,
+                        "data": {"error": str(e), "code": "infra_error"},
+                    }
+                ),
             }
 
     return EventSourceResponse(event_stream())
@@ -162,6 +169,7 @@ async def continue_after_tool(req: ContinueToolRequest):
                         {
                             "event": ev.event,
                             "step": ev.step,
+                            "protocol_version": EVENT_PROTOCOL_VERSION,
                             "data": ev.data,
                         },
                         ensure_ascii=False,
@@ -171,7 +179,13 @@ async def continue_after_tool(req: ContinueToolRequest):
         except Exception as e:
             yield {
                 "event": "error",
-                "data": json.dumps({"event": "error", "data": {"error": str(e)}}),
+                "data": json.dumps(
+                    {
+                        "event": "error",
+                        "protocol_version": EVENT_PROTOCOL_VERSION,
+                        "data": {"error": str(e), "code": "infra_error"},
+                    }
+                ),
             }
 
     return EventSourceResponse(event_stream())

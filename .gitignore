@@ -38,3 +38,7 @@ backend/workspace/*
 node_modules/
 dist/
 build/
+
+# ===== 前端运行时注入配置 =====
+frontend/runtime-config.js
+frontend/.runtime-config.*

@@ -12,8 +12,10 @@ agent.py —— Agent 核心循环(Step 4 的工业级骨架)
   - 这种"把循环拆成事件流"的做法,是所有可观测 agent 系统的底座
     (Cursor/Claude Code/OpenHands 都是这套架构,只是事件类型更多)
 """
+import asyncio
 import json
 import os
+import re
 import time
 from typing import AsyncGenerator, Dict, List, Tuple
 
@@ -53,6 +55,8 @@ _DEFAULT_PROVIDER = "ark"
 
 # 已创建的客户端缓存:provider → OpenAI client
 _clients: Dict[str, OpenAI] = {}
+
+EVENT_PROTOCOL_VERSION = 1
 
 
 def _is_real_key(value: str) -> bool:
@@ -126,6 +130,20 @@ def _rough_token_count(value) -> int:
     cjk = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
     other = len(text) - cjk
     return max(1, cjk + (other + 3) // 4)
+
+
+def _classify_error_code(exc: Exception) -> str:
+    """Best-effort error code for transport/provider/runtime failures."""
+    s = str(exc).lower()
+    if any(token in s for token in ("api key", "apikey", "401", "403", "invalid key", "permission")):
+        return "config_error"
+    if any(token in s for token in ("rate limit", "429", "quota", "too many requests", "server error", "content policy", "moderation")):
+        return "model_error"
+    if re.search(r"\b5\d\d\b", s):
+        return "model_error"
+    if any(token in s for token in ("timeout", "timed out", "network", "econn", "fetch", "sse", "abort", "connection", "dns", "unreachable", "address already in use")):
+        return "infra_error"
+    return "model_error"
 
 
 def _fallback_usage(messages: list, response_payload: dict) -> dict:
@@ -219,7 +237,7 @@ def _exec_tool_call(tc: dict, custom_tools_by_name: Dict[str, dict] = None) -> T
         args = json.loads(raw_args)
     except json.JSONDecodeError as e:
         return (
-            {"tool": name, "status": "arg_parse_error", "raw_args": raw_args},
+            {"tool": name, "status": "arg_parse_error", "code": "arg_parse_error", "raw_args": raw_args},
             f"参数解析失败:{e}。原始参数:{raw_args}",
         )
 
@@ -230,13 +248,13 @@ def _exec_tool_call(tc: dict, custom_tools_by_name: Dict[str, dict] = None) -> T
         if len(result) > 3000:
             result = result[:3000] + "\n...(mock 结果被截断)"
         return (
-            {"tool": name, "args": args, "status": "mock_ok", "source": "custom"},
+            {"tool": name, "args": args, "status": "mock_ok", "code": "mock_ok", "source": "custom"},
             result,
         )
 
     if impl is None:
         return (
-            {"tool": name, "args": args, "status": "unknown_tool"},
+            {"tool": name, "args": args, "status": "unknown_tool", "code": "unknown_tool"},
             f"未知工具 {name}",
         )
 
@@ -246,13 +264,13 @@ def _exec_tool_call(tc: dict, custom_tools_by_name: Dict[str, dict] = None) -> T
         result = impl(**args)
     except PolicyViolation as e:
         return (
-            {"tool": name, "args": args, "status": "policy_violation", "reason": str(e)},
+            {"tool": name, "args": args, "status": "policy_violation", "code": "policy_violation", "reason": str(e)},
             f"已被代码级沙箱拦截:{e}",
         )
     # 边界 3b: 工具执行异常(工具本身的 bug,不是策略拦截)
     except Exception as e:
         return (
-            {"tool": name, "args": args, "status": "exec_error", "error": str(e)},
+            {"tool": name, "args": args, "status": "exec_error", "code": "exec_error", "error": str(e)},
             f"工具执行异常:{e}",
         )
 
@@ -261,7 +279,7 @@ def _exec_tool_call(tc: dict, custom_tools_by_name: Dict[str, dict] = None) -> T
         result = result[:3000] + "\n...(结果被截断)"
 
     return (
-        {"tool": name, "args": args, "status": "ok", "source": "built_in"},
+        {"tool": name, "args": args, "status": "ok", "code": "ok", "source": "built_in"},
         result,
     )
 
@@ -404,9 +422,17 @@ async def _run_agent_loop(
 
     for step in range(start_step, max_steps + 1):
         try:
-            resp = _llm_call(messages, tools_schema, provider, model_override)
+            # _llm_call 用的是同步 OpenAI 客户端,直接调用会阻塞整个事件循环
+            # (SSE 推流、/api/health 轮询全卡住)。丢到线程池里跑,让循环继续转。
+            resp = await asyncio.to_thread(
+                _llm_call, messages, tools_schema, provider, model_override
+            )
         except Exception as e:
-            yield AgentEvent(event="error", step=step, data={"error": str(e)})
+            yield AgentEvent(
+                event="error",
+                step=step,
+                data={"error": str(e), "code": _classify_error_code(e)},
+            )
             return
 
         messages.append(resp["message_dict"])

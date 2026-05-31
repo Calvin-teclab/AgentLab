@@ -10,6 +10,8 @@ tools.py —— 内置工具定义
   2. description 写给模型看,不是给人看
   3. 错误用返回值表达,不要 raise 出去
 """
+import ast
+import operator
 import os
 import re
 from datetime import datetime
@@ -23,6 +25,18 @@ from typing import Any, Dict, List
 WORKSPACE = Path(__file__).parent / "workspace"
 WORKSPACE.mkdir(exist_ok=True)
 TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+_BINARY_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+}
+
+_UNARY_OPERATORS = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+}
 
 
 class PolicyViolation(ValueError):
@@ -55,15 +69,30 @@ def calculator(expression: str) -> str:
     演示"结构化返回 + 错误转字符串喂回模型"的设计模式。
     """
     allowed = set("0123456789+-*/(). ")
-    if not set(expression) <= allowed:
+    if not expression or not set(expression) <= allowed:
         # 错误作为 observation 返回,不 raise
-        return f"错误:表达式包含非法字符。只允许数字和 + - * / ( ) ."
-    # 禁掉幂运算:两个连续 * 会被 eval 当成 **,9**9**9 这类输入能瞬间吃满
-    # CPU/内存。幂运算本就不在本工具承诺的「加减乘除和括号」范围内,直接拦下。
-    if "**" in expression:
-        return "错误:不支持幂运算(**)。只支持加减乘除和括号。"
+        return "错误:表达式包含非法字符。只允许数字和 + - * / ( ) ."
+    # floor division 不是本工具承诺的能力,直接拦下,避免把 // 当成可用语法。
+    if "**" in expression or "//" in expression:
+        return "错误:不支持幂运算(**)或整除(//)。只支持加减乘除和括号。"
     try:
-        result = eval(expression, {"__builtins__": {}}, {})
+        tree = ast.parse(expression, mode="eval")
+
+        def _eval(node):
+            if isinstance(node, ast.Expression):
+                return _eval(node.body)
+            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+                return node.value
+            if isinstance(node, ast.BinOp) and type(node.op) in _BINARY_OPERATORS:
+                left = _eval(node.left)
+                right = _eval(node.right)
+                return _BINARY_OPERATORS[type(node.op)](left, right)
+            if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPERATORS:
+                operand = _eval(node.operand)
+                return _UNARY_OPERATORS[type(node.op)](operand)
+            raise ValueError("表达式包含不支持的语法")
+
+        result = _eval(tree)
         return f"{expression} = {result}"
     except Exception as e:
         return f"计算失败:{e}"
