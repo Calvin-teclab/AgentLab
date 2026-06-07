@@ -768,6 +768,46 @@
     border-top: 1px solid var(--line);
     padding: 8px;
   }
+
+  /* 场景三轴对照:工具(能力) / 人工接管(边界) / 指标(评估)
+     —— 让"场景之间≠只换 prompt"在选择/加载时一眼可见 */
+  .scenario-axis {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    margin-top: 7px;
+    margin-left: 28px;
+  }
+  .scenario-axis-label {
+    flex: 0 0 auto;
+    width: 34px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    line-height: 1.7;
+  }
+  .scenario-axis-body { display: flex; flex-wrap: wrap; gap: 4px; }
+  .scenario-chip {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    padding: 1px 6px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .scenario-chip.manual {
+    border-color: var(--signal-line);
+    color: var(--signal);
+    background: rgba(45, 212, 191, .08);
+  }
+  .scenario-chip.metric {
+    border-style: dashed;
+    color: var(--ink-3);
+    background: transparent;
+  }
   .lesson-reset-btn {
     width: 100%;
     display: flex;
@@ -1421,6 +1461,28 @@
   }
   .diagnostic-signal.severe { border-left-color: var(--err); }
   .diagnostic-signal.ok { border-left-color: var(--ok); }
+  .diagnostic-signal.blocked { border-left-color: var(--ink-3); background: rgba(102, 128, 143, .05); }
+
+  /* 「配置阻断」是中性状态:既不是 err(红),也不该用 teal 主色(那代表通过/活跃)。
+     统一走 ink 灰阶,跟整体冷调暗色一致;按钮 hover 才点一下 teal,提示这是可操作项。 */
+  .config-note {
+    border: 1px solid var(--line-strong);
+    background: rgba(102, 128, 143, .06);
+    color: var(--ink-2);
+  }
+  .config-note .hl { color: var(--ink); }
+  .btn-config {
+    background: transparent;
+    border: 1px solid var(--line-bold);
+    color: var(--ink-2);
+    font-weight: 500;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .btn-config:hover {
+    color: var(--signal);
+    border-color: var(--signal-line);
+    background: var(--signal-glow);
+  }
   .side-tabs {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1591,7 +1653,7 @@
       </button>
       <div x-show="scenarioMenuOpen" x-transition.opacity
            x-cloak
-           class="lesson-menu absolute left-0 mt-2 w-80 z-[80]">
+           class="lesson-menu absolute left-0 mt-2 w-96 z-[80]">
         <template x-for="tpl in massTemplates" :key="tpl.id">
           <button @click="applyMassTemplate(tpl); scenarioMenuOpen = false"
                   class="lesson-menu-item">
@@ -1601,6 +1663,26 @@
                     x-text="(tpl.custom_tools?.length || 0) + ' tools'"></span>
             </div>
             <div class="lesson-menu-subtitle" x-text="tpl.subtitle"></div>
+            <!-- 工具轴:人工接管的工具用青色高亮标注(human-in-the-loop) -->
+            <div class="scenario-axis" x-show="(tpl.enabled_tools || []).length">
+              <span class="scenario-axis-label">工具</span>
+              <span class="scenario-axis-body">
+                <template x-for="t in (tpl.enabled_tools || [])" :key="t">
+                  <span class="scenario-chip"
+                        :class="{ manual: (tpl.manual_tools || []).includes(t) }"
+                        x-text="(tpl.manual_tools || []).includes(t) ? t + ' ·人工' : t"></span>
+                </template>
+              </span>
+            </div>
+            <!-- 指标轴:这个场景用什么口径衡量好坏 -->
+            <div class="scenario-axis" x-show="(tpl.metrics || []).length">
+              <span class="scenario-axis-label" title="目标口径,未由 Eval 自动测算">指标*</span>
+              <span class="scenario-axis-body">
+                <template x-for="m in (tpl.metrics || [])" :key="m">
+                  <span class="scenario-chip metric" x-text="m"></span>
+                </template>
+              </span>
+            </div>
           </button>
         </template>
         <button x-show="activeMassTemplateId" @click="clearMassScenario()"
@@ -1626,10 +1708,13 @@
           <p class="text-[10px] text-amber-600 mb-2">后端尚未配置任何 provider。请在 backend/.env 设置 ARK_* 或 GEMINI_*。</p>
         </template>
         <template x-if="availableProviders.length > 0">
-          <select x-model="provider"
+          <!-- 不用 x-model:x-if/x-for 异步渲染 option 时,x-model 的初始 DOM 同步会
+               踩到"option 还没生成"的时序坑,导致显示与真实 provider 不一致(静默串厂商)。
+               改成每个 option 自己用 :selected 声明是否选中(渲染即正确),@change 回写状态。 -->
+          <select @change="provider = $event.target.value"
                   class="w-full border rounded px-2 py-1 text-xs font-mono mb-2">
             <template x-for="p in availableProviders" :key="p.name">
-              <option :value="p.name" x-text="p.label + ' (' + p.name + ')'"></option>
+              <option :value="p.name" :selected="p.name === provider" x-text="p.label + ' (' + p.name + ')'"></option>
             </template>
           </select>
         </template>
@@ -1658,9 +1743,13 @@
     </details>
 
     <span class="badge"
-          :class="backendOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
+          :class="(backendOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200')
+                  + (!backendOnline && !backendLaunching ? ' cursor-pointer' : '')"
+          @click="!backendOnline && !backendLaunching && tryLaunchBackend()"
+          :title="backendOnline ? '后端已连接'
+                  : (backendLaunching ? '正在启动后端…' : '点击启动后端服务')">
       <span class="pulse-dot mr-2 align-middle" :class="backendOnline ? '' : 'off'"></span>
-      <span x-text="backendOnline ? '已连接' : '未连接'"></span>
+      <span x-text="backendOnline ? '已连接' : (backendLaunching ? '启动中…' : '未连接')"></span>
     </span>
   </div>
 </header>
@@ -1787,6 +1876,36 @@
         </div>
       </template>
 
+      <!-- 场景模式摘要:把"同一个 loop,换的不只是 prompt"摊开成五件套,
+           常驻在左栏顶部,破除"场景之间只是 system prompt 不同"的错觉 -->
+      <template x-if="mode === 'free' && activeMassTemplate()">
+        <div class="mb-3 px-3 py-2.5 rounded border-l-2 border-amber-300 bg-amber-50 text-[11px]">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="badge text-amber-800">场景</span>
+            <span class="font-semibold text-amber-800" x-text="activeMassTemplate().title"></span>
+          </div>
+          <div class="text-[10.5px] text-gray-500 leading-relaxed">
+            同一个 agent loop,换的不只是 prompt。这套配置 =
+            <span class="text-gray-700">策略</span>(prompt) +
+            <span class="text-gray-700">能力</span>(<span x-text="enabledTools.length"></span> 工具) +
+            <span class="text-gray-700">边界</span>(<span x-text="manualTools.length ? manualTools.length + ' 项人工接管' : '无人工接管'"></span>) +
+            <span class="text-gray-700">评估</span>(<span x-text="(activeMassTemplate().metrics || []).length"></span> 指标)
+          </div>
+          <div class="scenario-axis" style="margin-left:0"
+               x-show="(activeMassTemplate().metrics || []).length">
+            <span class="scenario-axis-label" title="这些是该场景该用的衡量口径,当前未由 Eval 自动测算">指标*</span>
+            <span class="scenario-axis-body">
+              <template x-for="m in (activeMassTemplate().metrics || [])" :key="m">
+                <span class="scenario-chip metric" x-text="m"></span>
+              </template>
+            </span>
+          </div>
+          <div class="text-[10px] text-gray-400 mt-1.5">
+            * 目标口径,未自动测算 —— Eval 仅跑通用 workspace benchmark,不计算本场景业务指标。
+          </div>
+        </div>
+      </template>
+
       <div class="side-tabs" :style="sideTabsStyle()">
         <button @click="leftTab = 'config'" :class="{ active: leftTab === 'config' }">Config</button>
         <button x-show="tabVisible('tools')"
@@ -1838,8 +1957,13 @@
 
       <!-- Mass Scenario 已迁移到顶部 pill,Eval tab 现在只装 Benchmark Suite -->
       <div x-show="leftTab === 'eval' && activeMassTemplate()" class="mb-3 text-[11px] text-gray-500 border-l-2 border-amber-300 pl-2">
-        当前场景: <span class="font-semibold text-amber-700" x-text="activeMassTemplate()?.title"></span>
+        当前场景: <span class="font-semibold text-amber-800" x-text="activeMassTemplate()?.title"></span>
         — 在顶部"场景 pill"可切换。
+        <div class="mt-1 text-[10.5px] text-gray-400 leading-relaxed">
+          ⚠ 注意:下方 benchmark 是<b>通用 workspace 用例</b>(文件/时间/计算/沙箱),
+          与本场景的工具(<span x-text="(activeMassTemplate()?.enabled_tools || []).join(', ')"></span>)无关。
+          它评的是"通用 agent loop 跑得对不对",不测算本场景的业务指标。
+        </div>
       </div>
 
       <!-- 工具勾选 -->
@@ -1944,9 +2068,15 @@
                                   ? 'bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100'
                                   : 'bg-stone-50 border-stone-300 text-stone-600 hover:bg-white'"
                           :title="manualTools.includes(t.name)
-                                  ? '当前：人工返回（点击切回真实执行）'
-                                  : '当前：真实执行（点击切换为人工返回）'">
-                    <span x-text="manualTools.includes(t.name) ? '✋ 人工' : '🤖 真实'"></span>
+                                  ? (t.source === 'custom'
+                                      ? '当前：人工返回（点击切回走 Mock 模板）'
+                                      : '当前：人工返回（点击切回真实执行）')
+                                  : (t.source === 'custom'
+                                      ? '当前：走 Mock 模板回显，并非真实执行（点击切换为人工返回）'
+                                      : '当前：真实执行，运行后端代码（点击切换为人工返回）')">
+                    <span x-text="manualTools.includes(t.name)
+                                  ? '✋ 人工'
+                                  : (t.source === 'custom' ? '🧪 模板' : '🤖 真实')"></span>
                   </button>
                   <!-- 复制/编辑/删除属于"塑形 mock 工具"操作,跟 custom_tools_visible 同步 -->
                   <div class="flex gap-1" x-show="lockedFlag('custom_tools_visible') !== false">
@@ -2095,6 +2225,17 @@
               </template>
             </div>
 
+            <!-- 跑前预警:期望工具有未勾选的 → 直接跑必然 fail,且是配置问题不是模型问题 -->
+            <div x-show="benchMissingTools(b).length" x-cloak
+                 class="config-note mt-1.5 text-[10px] rounded px-2 py-1 flex items-center gap-2 flex-wrap">
+              <span>⊘ 缺工具 <span class="font-mono hl" x-text="benchMissingTools(b).join(', ')"></span> 未勾选,跑了会判「配置阻断」</span>
+              <button x-show="!toolEnableLocked()"
+                      @click.stop="fillBenchmarkTools(b)"
+                      class="btn-config px-1.5 py-0.5 rounded shrink-0">
+                ⊕ 补齐工具集
+              </button>
+            </div>
+
             <div class="flex items-center gap-2 mt-2 flex-wrap">
               <button @click="loadBenchmarkCase(b)"
                       class="text-[10px] px-2 py-0.5 rounded border"
@@ -2155,8 +2296,8 @@
                   </div>
                   <template x-for="a in (batchResults[b.id].assertions || [])" :key="a.name">
                     <div class="flex items-start gap-1 text-[10px]">
-                      <span :class="a.ok ? 'text-green-700' : (a.severity === 'soft' ? 'text-amber-700' : 'text-red-700')"
-                            x-text="a.ok ? '✓' : (a.severity === 'soft' ? '⚠' : '✗')"></span>
+                      <span :class="a.ok ? 'text-green-700' : (a.severity === 'soft' ? 'text-amber-700' : (a.severity === 'config' ? 'text-gray-500' : 'text-red-700'))"
+                            x-text="a.ok ? '✓' : (a.severity === 'soft' ? '⚠' : (a.severity === 'config' ? '⊘' : '✗'))"></span>
                       <span class="text-gray-700" x-text="a.name"></span>
                       <span class="text-gray-400 font-mono" x-text="'· ' + a.detail"></span>
                     </div>
@@ -2346,6 +2487,18 @@
         </div>
       </div>
 
+      <!-- 跑前提醒:挂了断言、但这条 case 的预期工具有没勾选的 → 现在发送必然「配置阻断」 -->
+      <div x-show="activeBenchmark() && benchMissingTools(activeBenchmark()).length" x-cloak
+           class="config-note mt-3 text-[11px] rounded-lg px-3 py-2 flex items-center gap-2 flex-wrap">
+        <span>⊘ 当前断言「<span class="hl" x-text="activeBenchmark()?.title"></span>」需要工具
+          <span class="font-mono hl" x-text="benchMissingTools(activeBenchmark()).join(', ')"></span>,但未勾选。直接发送会判「配置阻断」,不代表模型表现。</span>
+        <button x-show="!toolEnableLocked()"
+                @click="fillBenchmarkTools(activeBenchmark())"
+                class="btn-config px-2 py-0.5 rounded shrink-0">
+          ⊕ 补齐工具集
+        </button>
+      </div>
+
       <!-- 输入框 -->
       <div class="mt-3 flex gap-2">
         <textarea x-model="userInput"
@@ -2431,9 +2584,9 @@
               <div class="timeline-item py-2" :data-event-id="ev._id">
                 <div class="timeline-dot" :style="`background: ${eventColor(ev.event)}`"></div>
 
-                <div class="text-xs cursor-pointer"
-                     @click="ev._open = !ev._open">
-                  <div class="flex items-center gap-2">
+                <div class="text-xs">
+                  <div class="flex items-center gap-2 cursor-pointer"
+                       @click="ev._open = !ev._open">
                     <span class="badge" :class="eventBadgeClass(ev.event)" x-text="ev.event"></span>
                     <span class="text-gray-500" x-show="ev.step">
                       Step <span x-text="ev.step"></span>
@@ -2443,7 +2596,7 @@
                   </div>
 
                   <div x-show="ev._open" class="mt-2">
-                    <pre class="console-slab rounded p-2 text-[11px] overflow-x-auto"
+                    <pre class="console-slab rounded p-2 text-[11px] overflow-x-auto select-text"
                          x-text="JSON.stringify(ev.data, null, 2)"></pre>
                   </div>
                 </div>
@@ -2476,10 +2629,19 @@
             </div>
 
             <div x-show="activeBenchmark()" class="diagnostic-signal mb-3"
-                 :class="runDiagnosis().benchmark?.ok ? 'ok' : ''">
-              <div class="section-kicker mb-1">Benchmark Check</div>
+                 :class="runDiagnosis().benchmark?.blocked ? 'blocked' : (runDiagnosis().benchmark?.ok ? 'ok' : '')">
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <div class="section-kicker">Benchmark Check</div>
+                <span x-show="runDiagnosis().benchmark?.blocked" x-cloak
+                      class="badge text-gray-500">⊘ 配置阻断</span>
+              </div>
               <div class="text-sm font-semibold text-gray-900" x-text="activeBenchmark()?.title"></div>
               <div class="text-xs text-gray-500 mt-1" x-text="runDiagnosis().benchmark?.summary"></div>
+              <button x-show="runDiagnosis().benchmark?.blocked && !toolEnableLocked()" x-cloak
+                      @click="fillBenchmarkTools(activeBenchmark())"
+                      class="btn-config mt-2 text-[11px] px-2 py-1 rounded">
+                ⊕ 启用 <span x-text="(runDiagnosis().benchmark?.blockedTools || []).join(', ')"></span> 后重跑
+              </button>
               <div class="font-mono text-[10px] text-gray-400 mt-2"
                    x-text="'expected: ' + (activeBenchmark()?.expected_tools || []).join(' → ')"></div>
               <div class="font-mono text-[10px] text-gray-400"
@@ -2490,8 +2652,8 @@
                 <template x-for="a in runDiagnosis().assertions" :key="a.name">
                   <div class="flex items-start gap-1.5 text-[11px]">
                     <span class="font-mono shrink-0"
-                          :class="a.ok ? 'text-green-700' : (a.severity === 'soft' ? 'text-amber-700' : 'text-red-700')"
-                          x-text="a.ok ? '✓' : (a.severity === 'soft' ? '⚠' : '✗')"></span>
+                          :class="a.ok ? 'text-green-700' : (a.severity === 'soft' ? 'text-amber-700' : (a.severity === 'config' ? 'text-gray-500' : 'text-red-700'))"
+                          x-text="a.ok ? '✓' : (a.severity === 'soft' ? '⚠' : (a.severity === 'config' ? '⊘' : '✗'))"></span>
                     <span class="text-gray-700" x-text="a.name"></span>
                     <span class="text-gray-400 font-mono truncate" x-text="'· ' + a.detail"></span>
                   </div>
@@ -2562,6 +2724,7 @@ function agentPlayground() {
     // ========== 配置状态 ==========
     backendUrl: 'http://127.0.0.1:8000',
     backendOnline: false,
+    backendLaunching: false,
     modelOverride: '',   // 空 = 用后端 .env 默认 endpoint
     provider: '',        // 空 = 用后端默认 provider (通常是 ark)
     availableProviders: [],  // 来自 GET /api/providers,根据后端真实配好哪几家来渲染

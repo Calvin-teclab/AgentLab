@@ -97,6 +97,7 @@
 
     let benchmark = null;
     const assertions = [];
+    let configBlocked = false;
     const active = typeof ctx.activeBenchmark === 'function' ? ctx.activeBenchmark() : null;
     if (active) {
       const orderRequired = !!active.expected_tool_order;
@@ -104,28 +105,52 @@
       const missing = exp.filter(t => !tools.includes(t));
       const unexpected = tools.filter(t => !exp.includes(t));
 
+      // 关键区分:期望工具「缺席」可能是两类完全不同的原因 ——
+      //   missingDisabled : 该工具当前未在 TOOLS 面板勾选 → 模型根本拿不到 → 配置问题,不怪模型
+      //   missingEnabled  : 工具已启用却没被调用 → 真·模型行为问题(应调未调)
+      const enabledSet = new Set(ctx.enabledTools || []);
+      const missingDisabled = missing.filter(t => !enabledSet.has(t));
+      const missingEnabled = missing.filter(t => enabledSet.has(t));
+      configBlocked = missingDisabled.length > 0;
+      const disabledNote = `本 case 需要 ${missingDisabled.join(', ')},但当前未在 TOOLS 面板勾选,模型拿不到 → 无法调用。此 fail 源于工具集配置,不代表模型行为:启用后重跑即可。`;
+
       if (orderRequired && exp.length) {
         const subseqOk = (() => {
           let i = 0;
           for (const t of tools) if (i < exp.length && t === exp[i]) i++;
           return i === exp.length;
         })();
+        const blockedOnly = !subseqOk && configBlocked && !missingEnabled.length;
         assertions.push({
-          name: '工具顺序', ok: subseqOk, severity: 'hard',
-          detail: `期望 ${exp.join(' → ')} / 实际 ${tools.join(' → ') || 'none'}`,
+          name: '工具顺序', ok: subseqOk,
+          severity: blockedOnly ? 'config' : 'hard',
+          detail: blockedOnly
+            ? `期望 ${exp.join(' → ')};未启用 ${missingDisabled.join(', ')}(无法调用)`
+            : `期望 ${exp.join(' → ')} / 实际 ${tools.join(' → ') || 'none'}`,
         });
         if (terminal && !subseqOk) {
-          pushSignal('tool_not_called', 'high',
-            `工具顺序不符: 期望 ${exp.join(' → ')}, 实际 ${tools.join(' → ') || 'none'}。`);
+          if (missingDisabled.length) pushSignal('tool_disabled', 'medium', disabledNote);
+          if (!missingDisabled.length || missingEnabled.length) {
+            pushSignal('tool_not_called', 'high',
+              `工具顺序不符: 期望 ${exp.join(' → ')}, 实际 ${tools.join(' → ') || 'none'}。`);
+          }
         }
       } else if (exp.length) {
         const setOk = missing.length === 0;
+        const blockedOnly = !setOk && configBlocked && !missingEnabled.length;
         assertions.push({
-          name: '预期工具集合', ok: setOk, severity: 'hard',
-          detail: setOk ? `已覆盖 ${exp.join(', ')}` : `缺少 ${missing.join(', ')}`,
+          name: '预期工具集合', ok: setOk,
+          severity: blockedOnly ? 'config' : 'hard',
+          detail: setOk ? `已覆盖 ${exp.join(', ')}`
+            : (configBlocked
+                ? `未启用 ${missingDisabled.join(', ')}${missingEnabled.length ? `;另缺 ${missingEnabled.join(', ')}` : ''}`
+                : `缺少 ${missing.join(', ')}`),
         });
         if (terminal && !setOk) {
-          pushSignal('tool_not_called', 'high', `Benchmark 缺少预期工具: ${missing.join(', ')}。`);
+          if (missingDisabled.length) pushSignal('tool_disabled', 'medium', disabledNote);
+          if (missingEnabled.length) {
+            pushSignal('tool_not_called', 'high', `Benchmark 缺少预期工具: ${missingEnabled.join(', ')}。`);
+          }
         }
       }
       if (terminal && unexpected.length && exp.length) {
@@ -192,16 +217,25 @@
 
       const hardAssertionsOk = assertions.filter(a => a.severity === 'hard').every(a => a.ok);
       const serious = signals.some(s => s.severity === 'high');
-      const passing = terminal && hardAssertionsOk && !serious;
+      // configBlocked 时既不算 PASS 也不算模型 FAIL —— 单独的「配置阻断」态,
+      // 否则会因为没有 hard 失败而误判成 PASS。
+      const passing = terminal && hardAssertionsOk && !serious && !configBlocked;
+      const blockedTools = active.expected_tools
+        ? active.expected_tools.filter(t => !new Set(ctx.enabledTools || []).has(t))
+        : [];
       benchmark = {
         ok: passing,
+        blocked: configBlocked && terminal,   // 「配置阻断」是跑完后的判定;跑前预防交给输入框/卡片横幅
+        blockedTools,
         summary: !terminal
           ? '等待运行完成后给出启发式判断。'
-          : (passing
-              ? (needsPolicy
-                  ? '所有 hard 断言通过,代码级策略按预期拦下越权请求。'
-                  : '所有 hard 断言通过,未发现高危失败信号。')
-              : '存在未通过的 hard 断言或高危失败信号,见下方归因。'),
+          : (configBlocked
+              ? `配置阻断:本 case 依赖工具 ${blockedTools.join(', ')},当前未在 TOOLS 面板勾选,模型无法调用。此结果反映工具集配置,而非模型行为——启用后重跑。`
+              : (passing
+                  ? (needsPolicy
+                      ? '所有 hard 断言通过,代码级策略按预期拦下越权请求。'
+                      : '所有 hard 断言通过,未发现高危失败信号。')
+                  : '存在未通过的 hard 断言或高危失败信号,见下方归因。')),
       };
     }
 

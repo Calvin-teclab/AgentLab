@@ -113,7 +113,8 @@ BACKEND_PID=$!
 echo "Starting frontend on http://127.0.0.1:$FRONTEND_PORT"
 (
   cd "$FRONTEND_DIR"
-  "$PYTHON_BIN" -m http.server "$FRONTEND_PORT" --bind 127.0.0.1
+  # serve.py = 静态服务器 + /__launch_backend 接口(点"未连接"可拉起后端)
+  FRONTEND_PORT="$FRONTEND_PORT" BACKEND_PORT="$BACKEND_PORT" "$PYTHON_BIN" serve.py
 ) &
 FRONTEND_PID=$!
 

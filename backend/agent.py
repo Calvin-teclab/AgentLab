@@ -17,7 +17,7 @@ import json
 import os
 import re
 import time
-from typing import AsyncGenerator, Dict, List, Tuple
+from typing import AsyncGenerator, Dict, List, Optional, Tuple
 
 from openai import OpenAI
 
@@ -157,6 +157,36 @@ def _fallback_usage(messages: list, response_payload: dict) -> dict:
     }
 
 
+# === 429 / 限流自动退避 ===============================================
+# Agent 每个 step 都要调一次 LLM,免费层配额很容易被乘数效应打爆。
+# 这里只针对"每分钟限流(RPM)"做有限次退避重试:
+#   - 服务端给了 retryDelay 就按它睡(封顶,避免一次卡死几十秒)
+#   - 没给就指数退避 (2s, 4s, ...)
+#   - 若服务端要求等的时间超过封顶,多半是"每日配额"耗尽,重试无意义 → 直接抛出
+_RETRY_MAX_ATTEMPTS = 3      # 总尝试次数(含首次)
+_RETRY_MAX_SLEEP = 20.0      # 单次退避最长睡多久(秒)
+_RETRY_DELAY_RE = re.compile(r"retry[_-]?delay['\"]?\s*[:=]\s*['\"]?(\d+(?:\.\d+)?)\s*s", re.IGNORECASE)
+
+
+def _is_rate_limit_error(e: Exception) -> bool:
+    """识别 429 / 限流类错误(兼容 openai SDK 与各家兼容端点的文案)。"""
+    if getattr(e, "status_code", None) == 429:
+        return True
+    s = str(e).lower()
+    return any(t in s for t in ("429", "resource_exhausted", "rate limit", "quota", "too many requests"))
+
+
+def _retry_delay_for(e: Exception, attempt: int) -> Optional[float]:
+    """算出本次该睡几秒;返回 None 表示"不该重试"(等待过久/每日配额)。"""
+    m = _RETRY_DELAY_RE.search(str(e))
+    if m:
+        delay = float(m.group(1))
+        if delay > _RETRY_MAX_SLEEP:
+            return None  # 服务端要求等太久,多半是每日配额耗尽,重试也是 429
+        return delay + 0.5
+    return min(2.0 ** attempt, _RETRY_MAX_SLEEP)  # 没给 retryDelay → 指数退避
+
+
 def _llm_call(messages: list, tools_schema: list, provider: str, model_override: str) -> dict:
     """
     调一次 LLM 并返回结构化结果。
@@ -164,15 +194,26 @@ def _llm_call(messages: list, tools_schema: list, provider: str, model_override:
     注意:只有启用了工具时才传 tools 参数。因为:
       1. 空的 tools=[] 某些模型会报错
       2. 不传等于告诉模型"就纯聊天",行为更稳定
+
+    遇到 429/限流时按 retryDelay 做有限次退避重试,见上方常量。
     """
     client, model = _get_client_and_model(provider, model_override)
-    t0 = time.time()
     kwargs = {"model": model, "messages": messages}
     if tools_schema:
         kwargs["tools"] = tools_schema
         kwargs["tool_choice"] = "auto"
 
-    resp = client.chat.completions.create(**kwargs)
+    for attempt in range(1, _RETRY_MAX_ATTEMPTS + 1):
+        t0 = time.time()
+        try:
+            resp = client.chat.completions.create(**kwargs)
+            break
+        except Exception as e:
+            delay = _retry_delay_for(e, attempt) if _is_rate_limit_error(e) else None
+            if delay is None or attempt == _RETRY_MAX_ATTEMPTS:
+                raise  # 非限流错误 / 重试无意义 / 已用尽次数 → 交给上层转成 error 事件
+            time.sleep(delay)
+
     msg = resp.choices[0].message
     message_dict = msg.model_dump(exclude_none=True)
     response_payload = {

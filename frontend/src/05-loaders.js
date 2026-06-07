@@ -8,6 +8,17 @@
     }
   }
 
+  async function launchBackend(ctx) {
+    // 经前端服务器(serve.py)的本地接口拉起后端。浏览器自身无权启动进程,
+    // 这里用「同源相对路径」命中 serve.py(前端端口),而不是 backendUrl(后端端口)。
+    const r = await fetch('/__launch_backend', {
+      method: 'POST',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!r.ok) throw new Error('launch endpoint returned ' + r.status);
+    return r.json();
+  }
+
   async function loadTools(ctx) {
     try {
       const r = await fetch(ctx.backendUrl + '/api/tools');
@@ -64,6 +75,7 @@
 
   root.AgentLabLoaders = {
     checkHealth,
+    launchBackend,
     loadTools,
     loadProviders,
     loadLessons,

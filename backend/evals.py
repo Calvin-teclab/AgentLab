@@ -296,6 +296,11 @@ FAILURE_TAXONOMY: List[Dict[str, str]] = [
         "fix": "收紧 system prompt 或工具 description 的适用场景。",
     },
     {
+        "code": "tool_disabled",
+        "label": "工具未启用(配置)",
+        "fix": "这是工具集配置问题,不是模型行为:该 case 的预期工具当前未在 TOOLS 面板勾选,模型拿不到→无法调用。启用后重跑,或确认这条 case 本就不该带此工具。",
+    },
+    {
         "code": "wrong_tool",
         "label": "误调工具",
         "fix": "增加不适用场景,降低功能重叠,用 benchmark 做回归。",

@@ -23,6 +23,39 @@
       return window.AgentLabLoaders.checkHealth(this);
     },
 
+    // 点击"未连接"徽标 → 让前端服务器(serve.py)拉起后端,再快轮询直到就绪。
+    async tryLaunchBackend() {
+      if (this.backendOnline || this.backendLaunching) return;
+      this.backendLaunching = true;
+      try {
+        await window.AgentLabLoaders.launchBackend(this);
+      } catch (e) {
+        this.backendLaunching = false;
+        this.showNotification({
+          title: '无法自动启动后端',
+          detail: '当前前端不是用 serve.py / start.sh 启动的。请运行 ./start.sh,或在 backend/ 下执行 python3 main.py。',
+        });
+        return;
+      }
+      // 后端启动需要几秒,这里 1s 一次快轮询(最多 ~20s),比默认 10s 轮询更跟手。
+      for (let i = 0; i < 20; i++) {
+        await new Promise(res => setTimeout(res, 1000));
+        await this.checkHealth();
+        if (this.backendOnline) break;
+      }
+      this.backendLaunching = false;
+      if (this.backendOnline) {
+        // 后端刚起来,把依赖它的资源重新拉一遍,避免页面停在空状态。
+        await this.loadTools();
+        await this.loadProviders();
+        await this.loadLessons();
+        await this.loadEvalAssets();
+        this.showNotification({ title: '后端已启动', detail: '连接已恢复。' });
+      } else {
+        this.showNotification({ title: '后端启动超时', detail: '请查看 backend/backend.log 排查启动错误。' });
+      }
+    },
+
     async loadTools() {
       return window.AgentLabLoaders.loadTools(this);
     },
@@ -221,6 +254,24 @@
 
     activeBenchmark() {
       return window.AgentLabScenario.activeBenchmark(this);
+    },
+
+    // 这条 benchmark 的预期工具里,有哪些当前没在 TOOLS 面板勾选(只看真实存在的工具)。
+    // 非空 = 直接跑必然 fail,且 fail 源于配置而非模型。
+    benchMissingTools(b) {
+      if (!b || !Array.isArray(b.expected_tools)) return [];
+      const enabled = new Set(this.enabledTools || []);
+      const known = new Set(this.allTools().map(t => t.name));
+      return b.expected_tools.filter(t => known.has(t) && !enabled.has(t));
+    },
+
+    // 一键把这条 benchmark 缺的工具补勾上(lesson 锁定工具集时不动)。
+    fillBenchmarkTools(b) {
+      if (this.toolEnableLocked && this.toolEnableLocked()) return;
+      for (const t of this.benchMissingTools(b)) {
+        if (!this.enabledTools.includes(t)) this.enabledTools.push(t);
+      }
+      this.onToolToggled();
     },
 
     activeMassTemplate() {
