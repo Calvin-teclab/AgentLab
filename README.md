@@ -1,5 +1,7 @@
 # AgentLab
 
+> Copyright © 2026 Calvin-teclab · 基于 [PolyForm Noncommercial 1.0.0](LICENSE) 授权（**仅限非商业用途**）
+
 > 我自己用来折腾 Agent 底层逻辑的实验项目：通过前端配置和点击，直观地看到 Agent 每一步的决策、工具调用、消息流转与 token 消耗，方便我快速验证 prompt、工具描述和参数 schema 对模型行为的影响。
 
 ![AgentLab 界面预览](docs/screenshot.png)
@@ -157,3 +159,15 @@ AgentLab/
 | `workspace 里有什么？` | 2 步 | 探索型工具 |
 | `算一下 scores.txt 所有人的平均分` | 4 步 | 多工具串联规划 |
 | `读一下 /etc/passwd` | 1 步 | 安全沙箱拦截 |
+
+## License
+
+Copyright © 2026 Calvin-teclab.
+
+本项目基于 **[PolyForm Noncommercial License 1.0.0](LICENSE)** 授权：
+
+- ✅ 允许任何**非商业**用途：个人学习、研究、实验、教育、非营利组织使用
+- ✅ 允许修改、分发、二次创作 —— 但必须保留版权署名（`Required Notice`）
+- ❌ **禁止任何商业用途**（含商用产品、付费服务、商业培训等）
+
+如需商业授权，请通过 GitHub 联系作者 [@Calvin-teclab](https://github.com/Calvin-teclab)。
