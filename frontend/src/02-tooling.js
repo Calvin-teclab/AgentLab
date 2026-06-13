@@ -18,13 +18,19 @@
     };
   }
 
+  // remember 虽是内置工具,但它属于"记忆"子系统(与"工具"平级),不在通用工具勾选区出现,
+  // 也不计入工具数 / benchmark 已知工具集。它的启用开关在左栏独立的「长期记忆」区。
+  const MEMORY_TOOL = 'remember';
+
   function allTools(ctx) {
-    const builtIns = Object.entries(ctx.tools || {}).map(([name, t]) => ({
-      name,
-      description: t.description,
-      parameters: t.parameters || { type: 'object', properties: {} },
-      source: 'built_in',
-    }));
+    const builtIns = Object.entries(ctx.tools || {})
+      .filter(([name]) => name !== MEMORY_TOOL)
+      .map(([name, t]) => ({
+        name,
+        description: t.description,
+        parameters: t.parameters || { type: 'object', properties: {} },
+        source: 'built_in',
+      }));
     const builtInNames = new Set(builtIns.map(t => t.name));
     const custom = (ctx.customTools || [])
       .filter(t => t && t.name && !builtInNames.has(t.name))

@@ -145,6 +145,26 @@ def list_dir(path: str = ".") -> str:
         return f"列目录失败:{e}"
 
 
+def remember(fact: str) -> str:
+    """
+    长期记忆的"写端"——但后端故意只回显、不落盘。
+
+    这是整个记忆机制最反直觉的地方,也是 L6 要戳破的 aha:
+      - 模型"记住一件事" = 它发起一次 tool_call(remember),仅此而已;
+      - 真正的持久化在前端(localStorage),后端对记忆完全无状态。
+    因此后端天然多用户隔离、可水平扩展,不需要任何数据库。
+    "写记忆"在机制上和"调用 calculator"没有区别——都是一次普通的工具调用。
+
+    返回值只是给模型看的 observation,确认这条事实已交给宿主保管。
+    """
+    fact = (fact or "").strip()
+    if not fact:
+        return "错误:要记住的内容为空,没有写入任何记忆。"
+    if len(fact) > 500:
+        fact = fact[:500] + "…"
+    return f"已记住:{fact}"
+
+
 # === 3. 工具注册表 ====================================================
 # 把"实现函数"和"JSON Schema 声明"绑在一起。
 # 前端勾选工具时,后端根据这个 registry 动态构造 TOOLS_SCHEMA。
@@ -264,6 +284,32 @@ TOOL_REGISTRY: Dict[str, dict] = {
                             "description": "目录相对路径,默认为 workspace 根目录",
                         },
                     },
+                },
+            },
+        },
+    },
+    "remember": {
+        "impl": remember,
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "remember",
+                "description": (
+                    "把一条值得长期记住的事实存入跨会话的长期记忆。"
+                    "适用场景:用户透露了应在以后会话里也记得的偏好或事实,"
+                    "例如称呼、语言习惯、长期目标、口味禁忌、固定的工作约定。"
+                    "不适用:仅当前任务用一次的临时信息、能从本轮对话直接看到的内容。"
+                    "关键词:记住、以后都、我叫、我喜欢、我的偏好、别忘了。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "fact": {
+                            "type": "string",
+                            "description": "要长期记住的一条事实,尽量精炼成一句话",
+                        },
+                    },
+                    "required": ["fact"],
                 },
             },
         },

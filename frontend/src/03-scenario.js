@@ -28,6 +28,8 @@
     if (ctx.mode !== 'lesson') return true;
     if (tab === 'tools') return lockedFlag(ctx, 'tool_panel_visible') !== false;
     if (tab === 'eval') return false;
+    // 记忆是与工具平级的顶级 tab,但课程模式默认隐藏,只有显式开 memory_visible 的关卡(L6)才露出。
+    if (tab === 'memory') return lockedFlag(ctx, 'memory_visible') === true;
     return true;
   }
 
@@ -73,6 +75,9 @@
     if (Array.isArray(p.custom_tools)) ctx.customTools = p.custom_tools.slice();
     if (Array.isArray(p.manual_tools)) ctx.manualTools = p.manual_tools.slice();
     if (typeof p.max_steps === 'number') ctx.maxSteps = p.max_steps;
+    // 注入开关由关卡显式决定:未声明 memory_inject 的关卡(L1-L5)一律强制关闭,
+    // 否则注入的记忆会破坏 L1"清空会话=失忆"的演示。只有 L6 会把它设为 true。
+    ctx.memoryInject = p.memory_inject === true;
 
     if (!tabVisible(ctx, ctx.leftTab)) ctx.leftTab = 'config';
     ctx.resetSession();

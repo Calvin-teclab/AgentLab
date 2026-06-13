@@ -8,6 +8,9 @@
       manual_tools: ctx.manualTools,
       max_steps: ctx.maxSteps,
       history: ctx.history,
+      // 注入开关关闭 → 不带记忆(L6 的"失忆"对照)。
+      // 批跑必须旁路记忆,否则注入内容会污染 benchmark,跑分不可复现。
+      memory: (ctx.memoryInject && !ctx.batchRunning) ? ctx.memory : [],
       provider: ctx.provider || null,
       model_override: ctx.modelOverride.trim() || null,
     };
@@ -150,6 +153,18 @@
     localStorage.removeItem('agent_pg_tokendata');
   }
 
+  // 注意:clearMemory 刻意不放进 resetSession。"清空会话 ≠ 清空记忆"是 L6 的核心教学点——
+  // 会话(history/timeline)是工作记忆,记忆(memory)是跨会话长期记忆,两者各有独立的清除入口。
+  function clearMemory(ctx) {
+    if (!ctx.memory.length) return;
+    if (!confirm(`确定清空全部 ${ctx.memory.length} 条长期记忆?\n\n这跟"清空会话"互相独立:清空会话只删当前对话,记忆会跨会话留着;此操作才真正抹掉记忆,且不可撤销。`)) return;
+    ctx.memory = [];
+  }
+
+  function removeMemoryItem(ctx, idx) {
+    ctx.memory = ctx.memory.filter((_, i) => i !== idx);
+  }
+
   function applySystemPromptPreset(ctx, preset) {
     if (!preset) return;
     if (ctx.systemPrompt === preset.prompt) return;
@@ -288,6 +303,8 @@
     discardPendingToolCall,
     cancelRun,
     resetSession,
+    clearMemory,
+    removeMemoryItem,
     applySystemPromptPreset,
     applyMassTemplate,
     scenarioStateFingerprint,

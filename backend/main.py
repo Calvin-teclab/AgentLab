@@ -108,6 +108,7 @@ async def run(req: RunAgentRequest):
                 enabled_tools=req.enabled_tools,
                 max_steps=req.max_steps,
                 history=req.history,
+                memory=req.memory,
                 provider=req.provider,
                 model_override=req.model_override,
                 custom_tools=req.custom_tools,

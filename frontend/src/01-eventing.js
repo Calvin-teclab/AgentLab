@@ -44,6 +44,16 @@
     ctx.timeline.push(ev);
     if (payload.step) ctx.currentStep = payload.step;
 
+    if (payload.event === 'tool_call' && payload.data.tool === 'remember' && payload.data.status === 'ok') {
+      // 长期记忆的"写端":模型调一次 remember,前端在这里把 fact 落进 memory(localStorage)。
+      // 后端对记忆完全无状态(只回显),持久化的真相就在这一行。这正是 L6 要让人看见的——
+      // "记住一件事" = 时间轴上一次再普通不过的 tool_call,没有第三种东西。
+      const fact = (payload.data.args?.fact || '').trim();
+      if (fact && !ctx.memory.includes(fact)) {
+        ctx.memory = [...ctx.memory, fact];
+      }
+    }
+
     if (payload.event === 'user_input') {
       ctx.history = payload.data.messages_snapshot || ctx.history;
     } else if (payload.event === 'llm_response') {

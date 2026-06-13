@@ -48,6 +48,18 @@ class RunAgentRequest(BaseModel):
         default_factory=list,
         description="之前的 messages 历史(不含本轮 user_input)",
     )
+    # 长期记忆(跨会话)的"读端入口"。
+    # 与 history 一样,记忆的真相在前端(localStorage),后端依旧无状态:
+    # 前端把"已记住的事实"列表通过这里传进来,后端仅在新会话(history 为空)时
+    # 把它拼成一条 role:system 消息注入一次。这就是 L6 的 aha——
+    # 记忆 = 一次 remember 工具调用(写) + 这里注入一条 system 消息(读),没有第三种东西。
+    memory: List[str] = Field(
+        default_factory=list,
+        description=(
+            "跨会话长期记忆的事实列表(前端 localStorage 持有)。"
+            "后端仅在 history 为空的新会话开头注入一次,之后随 history 滚动带上。"
+        ),
+    )
     provider: Optional[str] = Field(
         default=None,
         description=(

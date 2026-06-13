@@ -7,6 +7,8 @@
     const savedProvider = localStorage.getItem('agent_pg_provider');
     const savedTools = localStorage.getItem('agent_pg_custom_tools');
     const savedManualTools = localStorage.getItem('agent_pg_manual_tools');
+    const savedMemory = localStorage.getItem('agent_pg_memory');
+    const savedMemoryInject = localStorage.getItem('agent_pg_memory_inject');
 
     if (queryBackend) ctx.backendUrl = queryBackend;
     else if (runtimeBackend) ctx.backendUrl = runtimeBackend;
@@ -19,6 +21,11 @@
     if (savedManualTools) {
       try { ctx.manualTools = JSON.parse(savedManualTools); } catch (e) { ctx.manualTools = []; }
     }
+    if (savedMemory) {
+      try { ctx.memory = JSON.parse(savedMemory); } catch (e) { ctx.memory = []; }
+    }
+    // 注入开关是全局偏好,跨会话保留;关卡进入时 enterLesson 会按 preset 覆盖它。
+    if (savedMemoryInject != null) ctx.memoryInject = savedMemoryInject === 'true';
 
     try {
       const h = localStorage.getItem('agent_pg_history');
@@ -74,6 +81,11 @@
     ctx.$watch('customTools', v => {
       try { localStorage.setItem('agent_pg_custom_tools', JSON.stringify(v)); } catch (e) {}
     });
+    // 记忆持久化:刻意独立于 history/timeline(那几个 key 会被 resetSession 删,记忆不会)。
+    ctx.$watch('memory', v => {
+      try { localStorage.setItem('agent_pg_memory', JSON.stringify(v)); } catch (e) {}
+    });
+    ctx.$watch('memoryInject', v => localStorage.setItem('agent_pg_memory_inject', v ? 'true' : 'false'));
     ctx.$watch('history', v => {
       try { localStorage.setItem('agent_pg_history', JSON.stringify(v)); } catch (e) {}
     });

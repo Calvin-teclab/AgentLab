@@ -9,8 +9,9 @@ lessons.py —— 关卡课程定义
   2. 全部自评式：用户点 "I see it" 推进，系统不做自动判定
   3. 关卡定义和代码同源版本控制，方便迭代
 
-五关全在,作为 agent 第一性原理课闭环。Lesson 1-4 讲机制(它是什么),
-Lesson 5 讲落地(你怎么塑造它)。
+六关全在,作为 agent 第一性原理课闭环。Lesson 1-4 讲机制(它是什么),
+Lesson 5 讲落地(system prompt 怎么塑造它),Lesson 6 讲跨会话长期记忆
+(把 L1「记忆=宿主在 append 列表」延伸到跨会话,拆穿「记忆是第四根支柱」的假象)。
 """
 from typing import Any, Dict, List, Optional
 
@@ -565,8 +566,148 @@ LESSONS: List[Dict[str, Any]] = [
         ),
 
         "next_hint": (
-            "你已经走完了 agent 第一性原理的五关。点上方「自由模式」就是 playground 完整开放——"
-            "工具实验室、Eval benchmark、Mass scenario templates 都在那边,把你刚学到的拿去捏一个属于你自己的 agent。"
+            "下一关:你大概听过「agent = LLM + 工具 + 记忆」。"
+            "最后一关拆开那个「记忆」——你会发现它不是第四根支柱,而是 L1 的跨会话延伸。"
+        ),
+    },
+    {
+        "id": "lesson6",
+        "order": 6,
+        "title": "记忆不是第四根支柱",
+        "subtitle": "「长期记忆」拆开 = 工具区一次 append + messages 开头一行",
+        "estimated_minutes": 10,
+
+        "locked_config": {
+            # 只给 remember 这一个工具,聚焦记忆机制本身;通用工具面板隐藏。
+            "enabled_tools": ["remember"],
+            "tool_panel_visible": False,
+            "custom_tools_visible": False,
+            "max_steps_visible": False,
+            "system_prompt_editable": False,
+            # 本关专属:打开左栏「🧠 长期记忆」区(L1-L5 都看不到它)。
+            "memory_visible": True,
+        },
+
+        "preset_config": {
+            "system_prompt": (
+                "你是一个助手。如果用户透露了应当长期记住的偏好或事实"
+                "(例如称呼、语言习惯、长期目标),就调用 remember 工具把它存进长期记忆。"
+                "回答保持简洁。"
+            ),
+            "enabled_tools": ["remember"],
+            "custom_tools": [],
+            "manual_tools": [],
+            "max_steps": 6,
+            # 进入本关默认打开注入(记得);第 4 步会让用户亲手关掉它做对照。
+            "memory_inject": True,
+        },
+
+        "task_intro": (
+            "第一关你看到:🗑 清空会话,模型立刻失忆——因为它的全部世界就是 messages 列表。"
+            "可现实里的 agent(ChatGPT 的「记忆」、Claude 的 project memory)明明能跨会话记得你。"
+            "这一关把那层「长期记忆」拆开,你会看到它没有任何新原语——"
+            "**写端是工具区的一次 `remember` 调用,读端是新会话开头多注入的一条 `system` 消息。**"
+        ),
+
+        "task_steps": [
+            {
+                "instruction": (
+                    "点左栏顶部的 **Memory** tab(它和 **Tools** 并排——记忆和工具是两个平级的子系统)。"
+                    "确认里面两个开关都是开的:「允许 Agent 自主记忆」+「新会话注入记忆」。然后在输入框输入:"
+                    "**我叫老花,以后都用中文、简短地回答我**"
+                ),
+                "hint": (
+                    "看右栏时间轴:会出现一条 **tool_call: remember**。"
+                    "同时左栏 🧠 记忆区里冒出一条「已记住的事实」。\n\n"
+                    "**注意这一刻**:模型「记住一件事」,在机制上就是发起了一次普通的工具调用——"
+                    "和它调 calculator 没有任何区别。这就是**写端**。"
+                ),
+            },
+            {
+                "instruction": "点中栏顶部的 **🗑 清空会话**。",
+                "hint": (
+                    "中栏 messages 列表被清空了(跟第一关一样)。"
+                    "但低头看左栏 🧠 记忆区——**那条「我叫老花…」还在**。\n\n"
+                    "**清空会话 ≠ 清空记忆。** 会话(history)是工作记忆,会被清;"
+                    "长期记忆(memory)存在别处(这里是浏览器 localStorage),清会话动不到它。"
+                ),
+            },
+            {
+                "instruction": "在这个**全新的空会话**里直接问:**我叫什么?该用什么语气回答我?**",
+                "hint": (
+                    "它答得出来:你叫老花、要简短中文。可这是个全新会话啊,模型不是无状态的吗?\n\n"
+                    "**展开中栏 messages 的第 2 条(role: system)**——你会看到记忆被拼成了一条 system 消息,"
+                    "塞在 system prompt 之后、你这句提问之前。这就是**读端**:新会话开头多 append 了一行。\n\n"
+                    "对比第一关:那时清空会话后就彻底失忆;这次「记得」,唯一的差别就是这条被注入的 system 消息。"
+                ),
+            },
+            {
+                "instruction": (
+                    "现在做对照实验:把左栏 🧠 记忆区的 **「新会话注入记忆」关掉**,"
+                    "再点 **🗑 清空会话**,然后再次问:**我叫什么?**"
+                ),
+                "hint": (
+                    "这次它不知道了——又变回第一关那个失忆的模型。\n\n"
+                    "记忆那条事实还**好端端存在记忆区里**(没被删),只是你不再把它注入新会话的开头,"
+                    "模型就看不见它。**「读」记忆 = 注入那条 system 消息,关掉注入 = 模型瞎了。**"
+                ),
+            },
+            {
+                "instruction": (
+                    "把「新会话注入记忆」**重新打开**。回头把这一关从头捋一遍:"
+                    "写端你在时间轴看到了什么?读端你在 messages 里看到了什么?"
+                ),
+                "hint": (
+                    "写端 = 时间轴上一次 `tool_call: remember`(往 messages append 一条工具结果)。\n"
+                    "读端 = 新会话 messages 开头一条 `role: system`(append 一条记忆)。\n\n"
+                    "**「长期记忆」整个被拆成了两次 append,没有第三种东西。** 它不是 agent 的第四根支柱,"
+                    "而是第一关「记忆=宿主在 append 列表」的跨会话延伸。"
+                ),
+            },
+        ],
+
+        "aha": (
+            "「长期记忆」听起来像独立的第四种能力,拆开却只有两次你早就认识的 append:"
+            "**写 = 一次 remember 工具调用,读 = 新会话开头注入一条 system 消息。**"
+            "关掉注入,模型立刻退回第一关的失忆态——证明记忆从不是模型的内在属性,"
+            "而始终是宿主对 messages 列表的操作。"
+        ),
+
+        "explanation_md": (
+            "## 把「agent = LLM + 工具 + 记忆」这个公式拆穿\n\n"
+            "这个流行公式把「记忆」摆成和「工具」并列的第三种原材料,好像 agent 有四根支柱。"
+            "可你这一关亲眼看到的是:\n\n"
+            "```python\n"
+            "# 写端:模型决定记住 → 它发起一次工具调用,和调 calculator 一模一样\n"
+            "{\"role\": \"assistant\", \"tool_calls\": [{\"function\": {\"name\": \"remember\", ...}}]}\n"
+            "{\"role\": \"tool\", \"content\": \"已记住:用户叫老花...\"}   # append 一条\n"
+            "\n"
+            "# 读端:新会话开头,宿主把记住的事实拼成一条 system 消息注入\n"
+            "messages = [\n"
+            "    {\"role\": \"system\", \"content\": \"<system prompt>\"},      # messages[0]\n"
+            "    {\"role\": \"system\", \"content\": \"关于用户的长期记忆:\\n- 叫老花\\n- 用中文简短回答\"},  # messages[1],注入的记忆\n"
+            "    {\"role\": \"user\", \"content\": \"我叫什么?\"},\n"
+            "]\n"
+            "```\n\n"
+            "**所以记忆 = 一次 tool_call(写) + 一条 messages 注入(读),没有第三种东西。**\n\n"
+            "**三个推论**:\n\n"
+            "1. **后端对记忆完全无状态** —— `remember` 工具在后端只回显、不落盘;持久化在前端(localStorage)。"
+            "因此后端天然多用户隔离、可水平扩展,根本不需要「记忆数据库」这种东西\n"
+            "2. **「清空会话 ≠ 清空记忆」是两个独立动作** —— 会话是工作记忆(history),清掉就失忆;"
+            "长期记忆存在会话之外,要专门 `clearMemory` 才抹掉。这正是 ChatGPT「清空对话」却仍记得你的原因\n"
+            "3. **注入时机决定一切** —— 本项目和 Claude Code 的 CLAUDE.md 一样,只在**新会话开头注入一次**,"
+            "之后随 history 滚动一直带着。会话中途改记忆不影响当前会话。把注入关掉,模型立刻退回 L1 的无状态裸机\n\n"
+            "**六关合起来,就是 agent 的完整第一性原理**:\n"
+            "- L1 记忆是假象(没记忆 = 你 append) → L6 长期记忆 = 把这条 append 延伸到跨会话\n"
+            "- L2 工具那只手是你的(host 才动手)→ L6 写记忆,就是 L2 那只手又调了一次工具\n"
+            "- L3 规划 = loop 跑够 · L4 description 决定调不调 · L5 system prompt 是人格\n\n"
+            "*真正的 agent 工程,RAG、长上下文、多 agent、记忆系统,全都是在这一个 messages 列表 + 一个循环之上做工程。"
+            "你没有在任何一关见过第二种原语。*"
+        ),
+
+        "next_hint": (
+            "六关走完,你已经把 agent 彻底拆成了「一个无状态 LLM + 一个 append messages 的循环」。"
+            "点上方「自由模式」——工具实验室、Eval benchmark、Mass scenario、记忆区全部开放,去捏一个你自己的 agent。"
         ),
     },
 ]

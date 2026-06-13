@@ -524,12 +524,36 @@ async def _run_agent_loop(
     )
 
 
+def _build_memory_message(memory: List[str]) -> Optional[dict]:
+    """
+    把前端传来的"已记住的事实"列表拼成一条独立的 role:system 消息。
+
+    刻意不把它拼进 system_prompt 字符串,而是单独成一条 system 消息,原因是教学:
+    在 messages 列表里能清清楚楚看到"记忆"就是 messages[1] 这一行,
+    和 system prompt(messages[0])、用户输入分得开。这正是 L6 要让人看见的——
+    长期记忆的"读"端,不过是会话开头多 append 了一条 system 消息而已。
+
+    返回 None 表示没有可注入的记忆(列表为空或全是空白)。
+    """
+    facts = [f.strip() for f in (memory or []) if f and f.strip()]
+    if not facts:
+        return None
+    lines = "\n".join(f"- {f}" for f in facts)
+    content = (
+        "以下是关于用户的长期记忆(来自过去的会话,跨会话保留)。"
+        "请在本次对话中把它们当作已知事实,无需用户重复说明:\n"
+        f"{lines}"
+    )
+    return {"role": "system", "content": content}
+
+
 async def run_agent(
     user_input: str,
     system_prompt: str,
     enabled_tools: List[str],
     max_steps: int,
     history: List[dict],
+    memory: List[str] = None,
     provider: str = None,
     model_override: str = None,
     custom_tools: List[dict] = None,
@@ -551,8 +575,15 @@ async def run_agent(
     # === 1. 组装 messages ==============================================
     # 如果是新会话,history 为空,放一条 system;否则直接续上。
     # 这样前端可以完全掌控"新会话/继续会话"的语义。
+    #
+    # 长期记忆只在"新会话开头"注入一次,作为 system_prompt 之后的第二条 system 消息。
+    # 一旦注入,它就进了 messages,之后随 history 滚动一直带着——和 Claude Code 的
+    # CLAUDE.md 同构:会话中途改记忆不影响当前会话。这是 L6 的核心对照点。
     if not history:
         messages = [{"role": "system", "content": system_prompt}]
+        memory_message = _build_memory_message(memory)
+        if memory_message is not None:
+            messages.append(memory_message)
     else:
         messages = list(history)  # 浅拷贝,避免污染前端传进来的对象
 

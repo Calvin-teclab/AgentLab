@@ -1910,6 +1910,8 @@
         <button @click="leftTab = 'config'" :class="{ active: leftTab === 'config' }">Config</button>
         <button x-show="tabVisible('tools')"
                 @click="leftTab = 'tools'" :class="{ active: leftTab === 'tools' }">Tools</button>
+        <button x-show="tabVisible('memory')"
+                @click="leftTab = 'memory'" :class="{ active: leftTab === 'memory' }">Memory</button>
         <button x-show="tabVisible('eval')"
                 @click="leftTab = 'eval'" :class="{ active: leftTab === 'eval' }">Eval</button>
       </div>
@@ -2107,6 +2109,64 @@
         </label>
         <input type="range" min="1" max="20" x-model.number="maxSteps" class="w-full" />
         <p class="text-[11px] text-gray-400 mt-1">循环上限,防止 agent 死循环烧钱</p>
+      </div>
+
+      <!-- 长期记忆 — 与"工具"平级的顶级 tab(不是第六个工具)。课程模式仅 L6(memory_visible)显示该 tab。 -->
+      <div x-show="leftTab === 'memory'" class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label class="section-kicker">🧠 长期记忆</label>
+          <span class="metric-chip text-[11px]"><span x-text="memory.length"></span> 条</span>
+        </div>
+        <p class="text-[11px] text-gray-400 mb-3 leading-relaxed">
+          跨会话保留,与"工具"是两个平级的子系统。写 = 模型调一次 <span class="font-mono">remember</span>;
+          读 = 新会话开头注入一条 <span class="font-mono">system</span>。和"工具"一样,本质都是往 messages 里 append——没有第三种东西。
+        </p>
+
+        <!-- 写端开关:启用 remember 工具(住在记忆区,不混进通用工具勾选) -->
+        <label class="flex items-start gap-2 text-xs mb-1.5 cursor-pointer"
+               :class="toolEnableLocked() ? 'cursor-not-allowed opacity-90' : ''">
+          <input type="checkbox" value="remember" x-model="enabledTools"
+                 @change="onToolToggled('remember')"
+                 :disabled="toolEnableLocked()"
+                 :title="toolEnableLocked() ? '本关锁定了工具集合,不可勾选/取消' : ''"
+                 class="mt-0.5 disabled:cursor-not-allowed" />
+          <span>
+            <span class="font-medium text-gray-800">允许 Agent 自主记忆</span>
+            <span x-show="toolEnableLocked() && enabledTools.includes('remember')"
+                  class="badge ml-1 bg-stone-200 text-stone-700" title="本关锁定">🔒</span>
+            <span class="block text-gray-500">启用 <span class="font-mono">remember</span> 工具——模型自己决定何时把事实存进记忆(写端)。</span>
+          </span>
+        </label>
+
+        <!-- 读端开关:新会话是否注入记忆(L6 对照实验) -->
+        <label class="flex items-start gap-2 text-xs mb-2 cursor-pointer">
+          <input type="checkbox" x-model="memoryInject" class="mt-0.5" />
+          <span>
+            <span class="font-medium text-gray-800">新会话注入记忆</span>
+            <span class="block text-gray-500">开 → 新会话开头带上记忆(记得);关 → 不注入(失忆)。这是读端开关。</span>
+          </span>
+        </label>
+
+        <!-- 已记住的事实(记忆的"状态"被看见) -->
+        <div x-show="memory.length" class="mt-2">
+          <div class="flex items-center justify-between mb-1">
+            <div class="section-kicker text-[10px]">已记住的事实</div>
+            <button @click="clearMemory()" class="text-[10px] text-red-700 hover:underline">清空记忆</button>
+          </div>
+          <template x-for="(fact, i) in memory" :key="i">
+            <div class="flex items-start gap-2 mb-1 text-xs bg-amber-50 border border-amber-200 rounded px-2 py-1">
+              <span class="flex-1 text-gray-700 break-words" x-text="fact"></span>
+              <button @click="removeMemoryItem(i)" class="text-amber-700 hover:text-red-700 shrink-0" title="删除这条记忆">✕</button>
+            </div>
+          </template>
+        </div>
+        <div x-show="!memory.length" class="text-[11px] text-gray-400 italic mt-1">
+          还没有记忆。让 Agent 调用 <span class="font-mono">remember</span>,或在对话里告诉它"记住……"。
+        </div>
+
+        <p class="text-[11px] text-gray-400 mt-2 italic leading-relaxed">
+          🗑 清空会话不会动这里——<span class="text-gray-500 not-italic font-medium">清空会话 ≠ 清空记忆</span>。
+        </p>
       </div>
 
       <!-- 无断言用例(轻量起手对话) -->
@@ -2750,6 +2810,15 @@ function agentPlayground() {
     },
     manualTools: [],     // enabledTools 的子集；命中的工具暂停由用户填 observation
     maxSteps: 10,
+
+    // ========== 长期记忆(跨会话) ==========
+    // 与"工具"平级的子系统,不是第六个工具。机制上仍是 messages 上的两次 append:
+    //   写 = 模型调一次 remember 工具(前端拦截 tool_call 存进 memory)
+    //   读 = 新会话开头注入一条 role:system(后端在 history 为空时做)
+    // memory: 已记住的事实列表(localStorage 持久化,resetSession 不清——"清空会话≠清空记忆")
+    // memoryInject: 是否在新会话开头注入记忆(L6 的对照实验开关:开→记得,关→失忆)
+    memory: [],
+    memoryInject: false,
 
     // ========== 课程模式状态 ==========
     mode: 'lesson',                  // 'lesson' | 'free'

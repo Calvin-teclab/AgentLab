@@ -196,6 +196,14 @@
       return window.AgentLabSession.resetSession(this);
     },
 
+    clearMemory() {
+      return window.AgentLabSession.clearMemory(this);
+    },
+
+    removeMemoryItem(idx) {
+      return window.AgentLabSession.removeMemoryItem(this, idx);
+    },
+
     async loadLessons() {
       return window.AgentLabLoaders.loadLessons(this);
     },
@@ -303,7 +311,10 @@
     },
 
     sideTabsStyle() {
-      const tabs = 1 + (this.tabVisible('tools') ? 1 : 0) + (this.tabVisible('eval') ? 1 : 0);
+      const tabs = 1
+        + (this.tabVisible('tools') ? 1 : 0)
+        + (this.tabVisible('memory') ? 1 : 0)
+        + (this.tabVisible('eval') ? 1 : 0);
       return {
         gridTemplateColumns: `repeat(${tabs}, minmax(0, 1fr))`,
       };
