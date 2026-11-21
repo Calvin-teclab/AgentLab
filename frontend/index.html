@@ -44,7 +44,7 @@
     /* Ink scale (cool slate, never stark white) */
     --ink:    #e6edf3;
     --ink-2:  #9fb2c0;
-    --ink-3:  #66808f;
+    --ink-3:  #879ba9;
     --ink-4:  #3e515d;
     --ink-5:  #28343c;
 
@@ -375,7 +375,7 @@
     border-radius: 0 !important;
     transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
   }
-  input[type="text"]::placeholder, textarea::placeholder { color: var(--ink-4); }
+  input[type="text"]::placeholder, textarea::placeholder { color: var(--ink-3); }
   input[type="text"]:focus, textarea:focus {
     border-color: var(--signal) !important;
     box-shadow: 0 0 0 1px var(--signal), 0 0 24px -8px var(--signal-glow) !important;
@@ -836,35 +836,7 @@
   /* =====================================================
      Lesson card — the centerpiece
      ===================================================== */
-  .lesson-card {
-    position: relative;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 0;
-    padding: 28px 26px 26px 32px;
-    box-shadow:
-      inset 0 1px 0 rgba(210, 230, 240, .03),
-      0 30px 60px -30px rgba(0, 0, 0, .55);
-  }
-  /* Amber side-rail with terminal tick */
-  .lesson-card::before {
-    content: "";
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 2px;
-    background: var(--signal);
-    box-shadow: 0 0 24px -2px var(--signal-glow);
-  }
-  /* Top tick mark */
-  .lesson-card::after {
-    content: "";
-    position: absolute;
-    left: -3px; top: -1px;
-    width: 10px; height: 1px;
-    background: var(--signal);
-  }
-
-  .lesson-card-header { margin-bottom: 18px; }
+  .lesson-card-header { margin-bottom: 12px; }
 
   .lesson-card-eyebrow {
     font-family: var(--mono);
@@ -908,7 +880,7 @@
     color: var(--ink-2);
     font-size: 14px;
     line-height: 1.65;
-    margin-bottom: 22px;
+    margin-bottom: 16px;
   }
   .lesson-intro strong {
     color: var(--signal);
@@ -1125,8 +1097,8 @@
   }
   .step-item {
     display: flex;
-    gap: 14px;
-    padding: 14px 4px 14px 4px;
+    gap: 10px;
+    padding: 12px 8px;
     border: none;
     border-bottom: 1px solid var(--line);
     background: transparent;
@@ -1141,7 +1113,7 @@
   }
   .step-item.current::before {
     content: ""; position: absolute;
-    left: -32px; top: 0; bottom: 0;
+    left: 0; top: 0; bottom: 0;
     width: 2px;
     background: var(--signal);
   }
@@ -1152,7 +1124,7 @@
 
   .step-num {
     flex-shrink: 0;
-    width: 32px; height: 22px;
+    width: 24px; height: 22px;
     display: grid;
     place-items: center;
     font-family: var(--mono);
@@ -1512,7 +1484,6 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
-    flex-wrap: wrap;
     max-width: 100%;
     border: 1px solid var(--line-strong);
     background: var(--canvas-2);
@@ -1544,6 +1515,12 @@
     font-size: 10px;
     min-height: 23px;
     padding: 5px 8px;
+  }
+  .tab-btn.compact.active {
+    background: var(--surface-3);
+    border-color: transparent;
+    color: var(--ink);
+    box-shadow: none;
   }
 
   /* =====================================================
@@ -1781,11 +1758,11 @@
     <!-- 课程模式下 lesson card + 下面的配置面板按 6:5 比例分高度,各自滚动。
          课程任务步骤是主线,配置面板是动手区,两者必须都可见才能跑通 lesson 2-5。 -->
     <div x-show="mode === 'lesson'"
-         class="bg-white rounded-lg border border-gray-200 p-5 overflow-y-auto"
+         class="bg-white rounded-lg border border-gray-200 overflow-y-auto"
          style="flex: 6 1 0; min-height: 0;">
       <template x-if="currentLesson()">
         <div>
-          <div class="lesson-card">
+          <div class="p-4">
             <div class="lesson-card-header">
               <div class="lesson-card-eyebrow">
                 Lesson <span x-text="currentLesson().order"></span> · 约 <span x-text="currentLesson().estimated_minutes"></span> 分钟
@@ -1906,7 +1883,8 @@
         </div>
       </template>
 
-      <div class="side-tabs" :style="sideTabsStyle()">
+      <div class="side-tabs" :style="sideTabsStyle()"
+           x-show="tabVisible('tools') || tabVisible('memory') || tabVisible('eval')">
         <button @click="leftTab = 'config'" :class="{ active: leftTab === 'config' }">Config</button>
         <button x-show="tabVisible('tools')"
                 @click="leftTab = 'tools'" :class="{ active: leftTab === 'tools' }">Tools</button>
@@ -2369,13 +2347,6 @@
         </template>
       </div>
 
-      <!-- 清空会话 -->
-      <button @click="resetSession()"
-              x-show="leftTab === 'config'"
-              class="w-full text-xs bg-gray-900 hover:bg-black text-stone-50 py-2 rounded font-semibold">
-        清空会话历史
-      </button>
-
       <!-- 示例任务已迁移到 Eval tab,作为"无断言用例"统一管理 -->
       <div x-show="leftTab === 'config' && tabVisible('eval')" class="mt-5 border-t pt-3 text-[11px] text-gray-400 italic">
         想快速塞一句对话?去 <button @click="leftTab = 'eval'"
@@ -2410,7 +2381,7 @@
       <!-- LLM Steps · ReAct 进度图 -->
       <div class="llm-step-progress" x-show="maxSteps > 0">
         <div class="react-head">
-          <span class="section-kicker">LLM Steps · ReAct loop</span>
+          <span class="section-kicker">ReAct 步骤</span>
           <div class="react-cycle" title="Reason → Act → Observe → Reason …">
             <span class="cycle-node" :class="reactPhase() === 'reason' ? 'active' : ''">
               <span class="cycle-icon">●</span><span>Reason</span>
@@ -2562,10 +2533,11 @@
       <!-- 输入框 -->
       <div class="mt-3 flex gap-2">
         <textarea x-model="userInput"
-                  @keydown.enter.prevent="!$event.shiftKey && send()"
+                  @keydown.enter="if (!$event.shiftKey && !$event.isComposing && $event.keyCode !== 229) { $event.preventDefault(); send() }"
                   :disabled="isRunning || pendingManualTool"
-                  placeholder="输入你的问题... (Enter 发送, Shift+Enter 换行)"
-                  class="flex-1 border rounded-lg px-3 py-2 text-sm resize-none"
+                  aria-label="输入问题"
+                  placeholder="输入问题（Enter 发送，Shift+Enter 换行）"
+                  class="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm resize-none"
                   rows="2"></textarea>
         <button @click="isRunning ? cancelRun() : send()"
                 :disabled="!isRunning && (!userInput.trim() || pendingManualTool)"
@@ -2608,7 +2580,7 @@
       <!-- 下:观察面板 -->
       <div id="right-bot" class="pane">
         <div class="bg-white rounded-lg border border-gray-200 p-4 flex-1 overflow-hidden flex flex-col min-h-0">
-          <div class="flex items-start justify-between mb-2 gap-2">
+          <div class="flex flex-wrap items-start justify-between mb-2 gap-2">
             <div>
               <div class="section-kicker">Run Inspector</div>
               <h2 class="panel-title">观察面板</h2>
