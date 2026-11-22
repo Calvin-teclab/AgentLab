@@ -55,8 +55,12 @@
     }
 
     if (payload.event === 'user_input') {
-      ctx.history = payload.data.messages_snapshot || ctx.history;
+      ctx.history = payload.data.messages_snapshot?.slice() || ctx.history;
     } else if (payload.event === 'llm_response') {
+      if (payload.step === 1 && ctx.mode === 'lesson' && ctx.currentLessonId === 'lesson1') {
+        const input = ctx.timeline[ctx.runStartIndex];
+        if (input?.event === 'user_input') root.AgentLabMemoryEvidence.observe(ctx, input.data.messages_snapshot);
+      }
       if (payload.data.usage) {
         ctx.tokenData.push({
           callIdx: ctx.tokenData.length + 1,

@@ -58,20 +58,45 @@
       ctx.runHistory = {};
     }
 
+    for (const key of ['baseline', 'comparisonRun', 'nameEvidence', 'firstUseTrial']) {
+      try { ctx[key] = JSON.parse(localStorage.getItem('agent_pg_' + key)) || null; } catch {}
+    }
+    ctx.evidenceChoice = ctx.comparisonRun?.firstChoice ?? '';
+    const savedMode = localStorage.getItem('agent_pg_mode');
+    const savedLesson = localStorage.getItem('agent_pg_lesson');
+    if (!ctx.firstUseTrial) {
+      const eligible = !savedMode && !savedLesson && !ctx.history.length;
+      ctx.firstUseTrial = { eligible, compared: false, identified: false, ended: false };
+      sessionStorage.setItem('agent_pg_first_visit', '1');
+    } else if (!sessionStorage.getItem('agent_pg_first_visit')) {
+      ctx.firstUseTrial.ended = true;
+    }
+    try { localStorage.setItem('agent_pg_firstUseTrial', JSON.stringify(ctx.firstUseTrial)); } catch {}
     try {
       const c = localStorage.getItem('agent_pg_completed');
       if (c) ctx.completedLessons = JSON.parse(c) || [];
     } catch (e) {}
 
-    const savedMode = localStorage.getItem('agent_pg_mode');
-    const savedLesson = localStorage.getItem('agent_pg_lesson');
-    const isReturning = !!(savedMode || ctx.history.length || savedLesson);
-    ctx.mode = savedMode || (isReturning ? 'free' : 'lesson');
+    ctx.mode = savedMode || (savedLesson || !ctx.history.length ? 'lesson' : 'free');
 
     return { savedLesson };
   }
 
   function bindPersistence(ctx) {
+    window.addEventListener('pagehide', () => {
+      const editor = {
+        mode: ctx.mode, lesson: ctx.currentLessonId, benchmark: ctx.activeBenchmarkId,
+        prompt: ctx.systemPrompt, tools: ctx.enabledTools, custom: ctx.customTools,
+        manual: ctx.manualTools, max: ctx.maxSteps, memoryInject: ctx.memoryInject,
+        step: ctx.lessonStepIdx, complete: ctx.lessonComplete,
+      };
+      try { localStorage.setItem('agent_pg_editor', JSON.stringify(editor)); } catch {}
+    });
+    for (const key of ['baseline', 'comparisonRun', 'nameEvidence', 'firstUseTrial']) {
+      ctx.$watch(key, value => {
+        try { localStorage.setItem('agent_pg_' + key, JSON.stringify(value)); } catch {}
+      });
+    }
     ctx.$watch('backendUrl', v => localStorage.setItem('agent_pg_backend', v));
     ctx.$watch('modelOverride', v => localStorage.setItem('agent_pg_model', v));
     ctx.$watch('provider', v => localStorage.setItem('agent_pg_provider', v || ''));
@@ -110,11 +135,30 @@
     if (ctx.mode === 'lesson' && ctx.lessons.length) {
       const target = ctx.lessons.find(l => l.id === savedLesson) || ctx.lessons[0];
       if (!ctx.history.length) {
+        const evidence = ctx.nameEvidence;
         ctx.enterLesson(target.id);
+        if (target.id === 'lesson1') ctx.nameEvidence = evidence;
       } else {
         ctx.currentLessonId = target.id;
+        const preset = target.preset_config;
+        ctx.systemPrompt = preset.system_prompt;
+        ctx.enabledTools = preset.enabled_tools.slice();
+        ctx.maxSteps = preset.max_steps;
+        ctx.memoryInject = !!preset.memory_inject;
       }
     }
+    let editor;
+    try { editor = JSON.parse(localStorage.getItem('agent_pg_editor')); } catch {}
+    if (!editor || editor.mode !== ctx.mode || (ctx.mode === 'lesson' && editor.lesson !== ctx.currentLessonId)) return;
+    ctx.systemPrompt = editor.prompt;
+    ctx.enabledTools = editor.tools;
+    ctx.customTools = editor.custom;
+    ctx.manualTools = editor.manual;
+    ctx.maxSteps = editor.max;
+    ctx.memoryInject = editor.memoryInject;
+    ctx.activeBenchmarkId = editor.benchmark;
+    ctx.lessonStepIdx = editor.step;
+    ctx.lessonComplete = editor.complete;
   }
 
   root.AgentLabLocalState = {

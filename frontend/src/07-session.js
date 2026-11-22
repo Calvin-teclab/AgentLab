@@ -2,6 +2,7 @@
   function buildRunRequest(ctx, input) {
     return {
       user_input: input,
+      benchmark_id: ctx.activeBenchmarkId || null,
       system_prompt: ctx.systemPrompt,
       enabled_tools: ctx.enabledTools,
       custom_tools: ctx.customTools,
@@ -18,6 +19,7 @@
 
   function buildContinueRequest(ctx, toolCall, result) {
     return {
+      benchmark_id: ctx.runDraft?.request.benchmark_id || ctx.activeBenchmarkId || null,
       tool_call_id: toolCall.tool_call_id,
       tool_result: result,
       enabled_tools: ctx.enabledTools,
@@ -30,10 +32,18 @@
     };
   }
 
-  async function send(ctx) {
-    const input = ctx.userInput.trim();
+  async function send(ctx, replay, backend) {
+    const input = replay?.user_input || ctx.userInput.trim();
     if (!input || ctx.isRunning || ctx.pendingManualTool) return;
 
+    const request = root.AgentLabExperiments.copy(replay || buildRunRequest(ctx, input));
+    const endpoint = backend || ctx.backendUrl;
+    ctx.runStartIndex = ctx.timeline.length;
+    ctx.lastExperiment = null;
+    ctx.runDraft = {
+      request, backend: endpoint, scope: root.AgentLabExperiments.scope(ctx), comparison: !!replay, batch: ctx.batchRunning,
+    };
+    if (request.history[0]?.role === 'system') request.system_prompt = request.history[0].content;
     const preRunHistoryLen = ctx.history.length;
     ctx.isRunning = true;
     ctx.currentStep = 0;
@@ -44,10 +54,10 @@
     ctx.abortController = new AbortController();
 
     try {
-      const resp = await fetch(ctx.backendUrl + '/api/run', {
+      const resp = await fetch(endpoint + '/api/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildRunRequest(ctx, input)),
+        body: JSON.stringify(request),
         signal: ctx.abortController.signal,
       });
 
@@ -65,20 +75,25 @@
       ctx.isRunning = false;
       ctx.abortController = null;
       ctx.scrollChatBottom();
-      if (ctx.activeBenchmarkId && !ctx.batchRunning) {
-        pushRunHistory(ctx, ctx.activeBenchmarkId);
+      const caseId = !ctx.runDraft?.batch && ctx.runDraft?.request.benchmark_id;
+      root.AgentLabExperiments.finish(ctx);
+      if (caseId && caseId === ctx.activeBenchmarkId && !ctx.batchRunning) {
+        pushRunHistory(ctx, caseId);
       }
     }
   }
 
   function pushRunHistory(ctx, caseId) {
-    const isTerminal = ctx.timeline.some(e => ['final_answer', 'max_steps', 'error'].includes(e.event));
+    const isTerminal = ctx.timeline.slice(ctx.runStartIndex).some(e => ['final_answer', 'max_steps', 'error'].includes(e.event));
     if (!isTerminal) return;
     const diag = ctx.runDiagnosis();
     const entry = {
       ok: !!diag.benchmark?.ok,
+      blocked: !!diag.benchmark?.blocked,
+      outcome: diag.benchmark?.outcome,
+      path: diag.benchmark?.path,
       tools: diag.tools,
-      tokens: ctx.totalTokens(),
+      tokens: Number(diag.metrics.find(m => m.label === 'Tokens')?.value || 0),
       timestamp: new Date().toISOString(),
       assertions_failed: (diag.assertions || [])
         .filter(a => !a.ok && a.severity === 'hard')
@@ -102,10 +117,17 @@
     ctx.manualToolResult = '';
 
     try {
-      const resp = await fetch(ctx.backendUrl + '/api/continue', {
+      const request = buildContinueRequest(ctx, toolCall, result);
+      if (ctx.runDraft?.comparison) {
+        const original = ctx.runDraft.request;
+        for (const key of ['benchmark_id', 'custom_tools', 'enabled_tools', 'manual_tools', 'max_steps', 'provider', 'model_override']) {
+          request[key] = original[key];
+        }
+      }
+      const resp = await fetch((ctx.runDraft?.backend || ctx.backendUrl) + '/api/continue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildContinueRequest(ctx, toolCall, result)),
+        body: JSON.stringify(request),
         signal: ctx.abortController.signal,
       });
       await ctx.consumeEventStream(resp);
@@ -120,8 +142,11 @@
       ctx.isRunning = false;
       ctx.abortController = null;
       ctx.scrollChatBottom();
-      if (ctx.activeBenchmarkId && !ctx.batchRunning) {
-        pushRunHistory(ctx, ctx.activeBenchmarkId);
+      const caseId = !ctx.runDraft?.batch && ctx.runDraft?.request.benchmark_id;
+      root.AgentLabExperiments.finish(ctx);
+      ctx.batchResume?.();
+      if (caseId && caseId === ctx.activeBenchmarkId && !ctx.batchRunning) {
+        pushRunHistory(ctx, caseId);
       }
     }
   }
@@ -133,6 +158,7 @@
     ctx.pendingManualTool = null;
     ctx.manualToolResult = '';
     ctx.pendingToolRollbackHistoryLen = null;
+    ctx.batchResume?.();
   }
 
   function cancelRun(ctx) {
@@ -140,6 +166,14 @@
   }
 
   function resetSession(ctx) {
+    if (ctx.isRunning) return;
+    if (ctx.mode === 'lesson' && ctx.currentLessonId === 'lesson1' && ctx.nameEvidence?.before) {
+      ctx.nameEvidence = { ...ctx.nameEvidence, cleared: true };
+    }
+    if (ctx.pendingManualTool) ctx.batchResume?.();
+    ctx.runStartIndex = 0;
+    ctx.runDraft = null;
+    ctx.lastExperiment = null;
     ctx.history = [];
     ctx.timeline = [];
     ctx.tokenData = [];
@@ -204,7 +238,7 @@
   }
 
   function applyMassTemplate(ctx, tpl) {
-    if (!tpl) return;
+    if (!tpl || ctx.isRunning || ctx.batchRunning) return;
     const previousState = {
       systemPrompt: ctx.systemPrompt,
       customTools: JSON.parse(JSON.stringify(ctx.customTools)),
@@ -297,6 +331,7 @@
   }
 
   root.AgentLabSession = {
+    buildRunRequest,
     send,
     pushRunHistory,
     submitManualToolResult,

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 class RunAgentRequest(BaseModel):
     """前端发起一次 agent 运行的请求参数"""
 
+    benchmark_id: Optional[str] = None
     user_input: str = Field(..., description="用户本轮输入")
     system_prompt: str = Field(
         default="你是一个助手,可以使用提供的工具完成任务。",
@@ -80,6 +81,7 @@ class RunAgentRequest(BaseModel):
 class ContinueToolRequest(BaseModel):
     """人工填写某个工具调用结果后,让 agent 继续执行。"""
 
+    benchmark_id: Optional[str] = None
     tool_call_id: str = Field(..., description="待补充 observation 的 tool_call_id")
     tool_result: str = Field(..., description="用户手动填写或修改后的工具返回内容")
     enabled_tools: List[str] = Field(default_factory=list, description="本次启用的工具名列表")

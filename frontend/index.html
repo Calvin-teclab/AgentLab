@@ -23,6 +23,8 @@
 <script src="./src/07-session.js"></script>
 <script src="./src/08-ui.js"></script>
 <script src="./src/09-timeline.js"></script>
+<script src="./src/experiments.js"></script>
+<script src="./src/memory-evidence.js"></script>
 <script src="./src/10-wiring.js"></script>
 <script src="./runtime-config-loader.js"></script>
 
@@ -1566,11 +1568,25 @@
     .app-subtitle { display: none; }
     .lesson-card-title { font-size: 24px; }
   }
+  .experiment { font-size: 12px; line-height: 1.55; color: var(--ink-2); }
+  .experiment h3, .experiment strong { color: var(--ink); }
+  .experiment h3 { font-weight: 600; font-size: 14px; }
+  .experiment button, .experiment select { border: 1px solid var(--ink-4); border-radius: 5px; padding: 4px 8px; color: var(--ink); background: var(--surface-2); }
+  .experiment button:disabled { opacity: .45; cursor: not-allowed; }
+  .experiment button:focus-visible, .experiment select:focus-visible { outline: 2px solid var(--signal, #2dd4bf); }
+  .experiment .actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .experiment .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 5px 0; }
+  .experiment .cell { border: 1px solid var(--ink-5); border-radius: 5px; padding: 6px; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+  .experiment .cell:has(> div), .experiment .cell:has(> strong) { white-space: normal; }
+  .experiment .cell > div { white-space: pre-wrap; }
+  .experiment .evidence { border-inline-start: 3px solid #2dd4bf; background: var(--surface-3); }
+  .experiment .line { margin: 3px 0; padding: 2px 4px; }
+  .experiment .caption { color: var(--ink-3); font-size: 11px; }
+  .experiment details { margin: 6px 0; }
 </style>
 </head>
 
-<body x-data="agentPlayground()"
-      x-init="init()">
+<body x-data="agentPlayground()">
 
 <!-- ========== 顶部栏 ========== -->
 <header class="app-topbar px-6 py-2 flex items-center justify-between flex-wrap gap-3">
@@ -1760,6 +1776,32 @@
     <div x-show="mode === 'lesson'"
          class="bg-white rounded-lg border border-gray-200 overflow-y-auto"
          style="flex: 6 1 0; min-height: 0;">
+            <div x-show="currentLessonId === 'lesson1' || !lessons.length" class="experiment p-4">
+              <h3 x-text="showReplay ? '第一课 · 示例消息' : '第一课 · 本次请求的消息'"></h3>
+              <div class="actions">
+                <button @click="showReplay = !showReplay" x-text="showReplay ? '返回我的实验' : '查看示例回放（免 API Key）'"></button>
+              </div>
+              <p x-show="showReplay" class="caption">示例回放 · 固定消息，无模型调用</p>
+              <p x-show="!memoryPair()" class="caption">介绍姓名后发送「我叫什么？」，这里会留下发给模型的消息。</p>
+              <template x-if="memoryPair()">
+                <div class="pair">
+                  <template x-for="side in ['before', 'after']" :key="side">
+                    <section class="cell">
+                      <strong x-text="side === 'before' ? '清空前' : '清空后'"></strong>
+                      <p class="caption" x-show="!memoryPair()[side]">清空会话后再问一次「我叫什么？」。</p>
+                      <template x-for="(msg, i) in (memoryPair()[side] || [])" :key="i">
+                        <div class="line" :class="{ evidence: msg.content?.includes(memoryPair().name) }">
+                          <span class="caption" x-text="msg.role"></span>
+                          <span x-text="msg.content"></span>
+                        </div>
+                      </template>
+                    </section>
+                  </template>
+                </div>
+              </template>
+              <p class="caption" x-show="memoryPair()?.before">着色的消息包含姓名。两列都停在模型回答之前。</p>
+            </div>
+
       <template x-if="currentLesson()">
         <div>
           <div class="p-4">
@@ -1793,7 +1835,7 @@
               <div>
                 <div class="aha-banner">
                   <div class="aha-banner-eyebrow">💡 你刚刚看见了</div>
-                  <div class="aha-banner-text" x-text="currentLesson().aha"></div>
+                  <div class="aha-banner-text" x-text="currentLessonId === 'lesson1' ? memoryConclusion() : currentLesson().aha"></div>
                 </div>
 
                 <button class="lesson-explain-toggle"
@@ -2189,7 +2231,7 @@
             <!-- 批量回归 = 少数派入口(改完 prompt/模型后想看回归)。淡灰小字,不抢戏。 -->
             <button x-show="!batchRunning"
                     @click="runAllBenchmarks()"
-                    :disabled="isRunning || !benchmarkCases.length"
+                    :disabled="isRunning || pendingManualTool || !benchmarkCases.length"
                     class="text-[10px] text-gray-500 hover:text-gray-900 underline-offset-2 hover:underline
                            disabled:opacity-40 disabled:cursor-not-allowed"
                     title="一次跑完所有 case,产出 pass-rate。改完 prompt/模型后做回归用">
@@ -2209,7 +2251,7 @@
           <span>running <span x-text="batchCursor + 1"></span>/<span x-text="benchmarkCases.length"></span>:</span>
           <span x-text="benchmarkCases[batchCursor]?.title || ''"></span>
         </div>
-        <div x-show="!batchRunning && batchSummary()" x-cloak class="mb-2 text-right">
+        <div x-show="!batchRunning && Object.keys(batchResults).length" x-cloak class="mb-2 text-right">
           <button @click="batchResults = {}; localStorage.removeItem('agent_pg_batch_results');"
                   class="text-[10px] text-gray-400 hover:text-red-700">
             清空批量结果
@@ -2227,7 +2269,7 @@
                       :class="batchResults[b.id]?.ok
                               ? 'bg-green-100 text-green-700'
                               : 'bg-red-100 text-red-700'"
-                      x-text="batchResults[b.id]?.ok ? '✓ pass' : '✗ fail'"
+                      x-text="verdictLabel(b, batchResults[b.id])"
                       x-cloak></span>
                 <div class="font-semibold text-gray-900 truncate" x-text="b.title"></div>
               </div>
@@ -2255,11 +2297,11 @@
             <!-- P2.7: 单跑回归条「近 5: ✓✓✗✓✓」-->
             <div x-show="runHistory[b.id]?.length" x-cloak
                  class="font-mono text-[10px] mt-1 flex items-center gap-1"
-                 :title="(runHistory[b.id] || []).map(r => (r.ok?'✓':'✗') + ' ' + new Date(r.timestamp).toLocaleString()).join('\n')">
+                 :title="(runHistory[b.id] || []).map(r => verdictLabel(b, r) + (r.outcome ? ' · 任务' + r.outcome.status + ' / 路径' + r.path : '') + ' ' + new Date(r.timestamp).toLocaleString()).join('\n')">
               <span class="text-gray-400">近 <span x-text="runHistory[b.id]?.length"></span>:</span>
               <template x-for="(r, i) in (runHistory[b.id] || [])" :key="i">
                 <span :class="r.ok ? 'text-green-700' : 'text-red-700'"
-                      x-text="r.ok ? '✓' : '✗'"></span>
+                      x-text="b.result_check && !r.outcome ? '旧' : (r.blocked ? '⊘' : (r.ok ? '✓' : '✗'))"></span>
               </template>
             </div>
 
@@ -2275,7 +2317,7 @@
             </div>
 
             <div class="flex items-center gap-2 mt-2 flex-wrap">
-              <button @click="loadBenchmarkCase(b)"
+              <button @click="loadBenchmarkCase(b)" :disabled="isRunning || batchRunning || pendingManualTool"
                       class="text-[10px] px-2 py-0.5 rounded border"
                       :class="activeBenchmarkId === b.id
                               ? 'border-amber-500 bg-amber-50 text-amber-700'
@@ -2325,10 +2367,12 @@
                     最近批量跑:
                     <span class="font-mono"
                           :class="batchResults[b.id].ok ? 'text-green-700' : 'text-red-700'"
-                          x-text="batchResults[b.id].ok ? 'PASS' : 'FAIL'"></span>
+                          x-text="verdictLabel(b, batchResults[b.id])"></span>
                     <span class="text-gray-400 font-mono ml-2"
                           x-text="(batchResults[b.id].duration_ms/1000).toFixed(1) + 's · ' + batchResults[b.id].tokens + ' tokens'"></span>
                   </div>
+                  <div x-show="batchResults[b.id].outcome" x-text="'任务结果 · ' + (batchResults[b.id].outcome?.status || '') + '　工具路径 · ' + (batchResults[b.id].path || '')"></div>
+                  <div class="text-gray-500" x-text="batchResults[b.id].outcome?.detail"></div>
                   <div class="font-mono text-[10px] text-gray-500 mb-1">
                     actual: <span x-text="batchResults[b.id].tools.join(' → ') || 'none'"></span>
                   </div>
@@ -2593,6 +2637,7 @@
                 <button @click="inspectorView = 'messages'"
                         :class="{ active: inspectorView === 'messages' }"
                         class="tab-btn">Messages</button>
+                <button x-show="compareAvailable()" @click="inspectorView = 'compare'" :class="{ active: inspectorView === 'compare' }" class="tab-btn">对照</button>
                 <button @click="inspectorView = 'diagnosis'"
                         :class="{ active: inspectorView === 'diagnosis' }"
                         class="tab-btn">Diagnosis</button>
@@ -2650,6 +2695,60 @@
             </div>
           </div>
 
+          <div x-show="inspectorView === 'compare' && compareAvailable()" class="experiment flex-1 overflow-y-auto pr-1">
+            <h3>运行对照</h3>
+            <p class="caption" x-show="!visibleBase()">先完成一次运行，再保存其配置和观察记录。</p>
+            <div class="actions">
+              <button @click="pinBaseline()" :disabled="!canPin()" x-text="visibleBase() ? '用本轮替换基线' : '设为基线'"></button>
+              <button x-show="visibleBase()" @click="rerunComparison()" :disabled="isRunning || batchRunning || pendingManualTool || configChanges().length > 1">修改后重跑</button>
+            </div>
+            <template x-if="visibleBase()">
+              <div>
+                <strong x-text="baseline.request.user_input"></strong>
+                <p class="caption" x-text="baseline.provider + ' / ' + baseline.model + ' · 复用初始消息和记忆'"></p>
+                <details><summary>查看初始上下文</summary><pre class="cell" x-text="JSON.stringify({history: baseline.request.history, system: baseline.request.system_prompt, memory: baseline.request.memory}, null, 2)"></pre></details>
+                <p x-text="configChanges().length ? '当前改动 · ' + configChanges().map(d => d.key).join('、') : '当前配置与基线一致，可重复运行。'"></p>
+                <p x-show="configChanges().length > 1">请一次只修改一个字段。</p>
+                <template x-for="change in comparedChanges()" :key="change.key">
+                  <div><strong x-text="change.key"></strong><div class="pair"><div class="cell" x-text="change.before"></div><div class="cell" x-text="change.after"></div></div></div>
+                </template>
+                <div class="pair"><strong>基线</strong><strong>重跑记录</strong></div>
+                <div class="pair" x-show="baseline.verdict">
+                  <template x-for="item in [baseline, comparisonRun]" :key="item === baseline ? 'base' : 'repeat'">
+                    <div class="cell" x-text="item?.verdict ? '结果 · ' + item.verdict.outcome.status + '　路径 · ' + item.verdict.path : '待重跑'"></div>
+                  </template>
+                </div>
+                <template x-for="row in comparisonRows()" :key="row.index">
+                  <div class="pair" :class="{ evidence: evidenceChoice !== '' && row.different && row.index === firstDifference() }">
+                    <template x-for="side in ['a', 'b']" :key="side">
+                      <div class="cell"><span class="caption" x-text="row[side] ? '步骤 ' + row[side].step : ''"></span>
+                        <div x-text="row[side]?.text ?? (comparisonRun ? '—' : '待重跑')"></div></div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="comparisonRun">
+                  <div>
+                    <p x-show="!comparisonRun.complete">重跑未完成，可查看错误后重试。</p>
+                    <template x-if="comparisonRun.complete">
+                      <div>
+                        <label>哪条记录最先出现差异？
+                          <select x-model="evidenceChoice" @change="$nextTick(() => recordEvidence())">
+                            <option value="">选择记录</option><option value="-1">两次一致</option>
+                            <template x-for="row in comparisonRows()" :key="row.index">
+                              <option :value="String(row.index)" x-text="'第 ' + (row.index + 1) + ' 条记录'"></option>
+                            </template>
+                          </select>
+                        </label>
+                        <p aria-live="polite" x-show="evidenceChoice !== ''" x-text="evidenceCorrect() ? '已核对你的判断。' : '再对照两列的工具、参数、返回和回答。'"></p>
+                        <p class="caption" x-show="evidenceChoice !== ''" x-text="firstDifference() < 0 ? '两次可观察到的行为一致。' : '首处差异在第 ' + (firstDifference() + 1) + ' 条记录。'"></p>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+
           <div x-show="inspectorView === 'diagnosis'" class="flex-1 overflow-y-auto pr-1">
             <div class="diagnostic-grid mb-3">
               <template x-for="m in runDiagnosis().metrics" :key="m.label">
@@ -2669,6 +2768,9 @@
               </div>
               <div class="text-sm font-semibold text-gray-900" x-text="activeBenchmark()?.title"></div>
               <div class="text-xs text-gray-500 mt-1" x-text="runDiagnosis().benchmark?.summary"></div>
+              <div class="text-xs mt-2" x-text="'任务结果 · ' + (runDiagnosis().benchmark?.outcome.status || '等待运行')"></div>
+              <div class="text-xs text-gray-500" x-text="runDiagnosis().benchmark?.outcome.detail"></div>
+              <div class="text-xs" x-text="'工具路径 · ' + (runDiagnosis().benchmark?.path || '等待运行')"></div>
               <button x-show="runDiagnosis().benchmark?.blocked && !toolEnableLocked()" x-cloak
                       @click="fillBenchmarkTools(activeBenchmark())"
                       class="btn-config mt-2 text-[11px] px-2 py-1 rounded">
@@ -2814,6 +2916,7 @@ function agentPlayground() {
     // batchRunning: 整个批跑期间为 true; batchCursor: 当前正在跑第几个 case (0-based,-1 表示空闲)
     batchResults: {},
     batchRunning: false,
+    batchResume: null,
     batchCursor: -1,
 
     // ========== 单跑历史 (P2.7) ==========
@@ -2905,6 +3008,24 @@ function agentPlayground() {
       },
     ],
 
+    runStartIndex: 0,
+    runDraft: null,
+    lastExperiment: null,
+    baseline: null,
+    comparisonRun: null,
+    evidenceChoice: '',
+    firstUseTrial: null,
+    nameEvidence: null,
+    showReplay: false,
+    memoryPair() { return this.showReplay ? window.AgentLabMemoryEvidence.replay : this.nameEvidence; },
+    memoryConclusion() {
+      const pair = this.memoryPair();
+      if (!pair?.after) return '再看一次清空前后的输入。可以运行两次提问，也可以打开示例回放。';
+      const count = messages => messages.filter(m => m.content?.includes(pair.name)).length;
+      return (this.showReplay ? '示例中' : '你的实验中') + '，清空前有 ' + count(pair.before) +
+        ' 条消息含有「' + pair.name + '」，清空后有 ' + count(pair.after) + ' 条。';
+    },
+    ...window.AgentLabExperiments.methods,
     ...window.AgentLabWiring,
 
     // 覆盖 wiring 的默认实现:把闭包里的 chartState 显式传进去,确保 Chart 实例

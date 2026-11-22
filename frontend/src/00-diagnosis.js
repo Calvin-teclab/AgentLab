@@ -1,5 +1,4 @@
 (function (root) {
-  let diagCache = { key: null, value: null };
 
   function tax(failureTaxonomy, code) {
     return failureTaxonomy.find(t => t.code === code) || {
@@ -22,17 +21,48 @@
     return 'model_error';
   }
 
-  function run(ctx) {
-    const tlLen = ctx.timeline.length;
-    const benchId = ctx.activeBenchmarkId || '';
-    const cacheKey = tlLen + ':' + benchId;
-    if (diagCache.key === cacheKey) return diagCache.value;
+  function scoreResult(rule, input, final, results) {
+    if (!input && !final) return { status: '等待运行', detail: '发送用例后开始核对。' };
+    const expected = input?.data.score_reference;
+    if (!expected || expected.error) {
+      return { status: '缺少证据', detail: expected?.error || '运行时未记录成绩，请重新运行。' };
+    }
+    if (!final) return { status: '未完成', detail: '等待本轮最终回答。' };
+    const report = rule === 'score_report';
+    const artifact = final.data.report_evidence;
+    if (report) {
+      const writes = results.filter(e => e.data.report_write_digest);
+      if (!artifact?.digest || !writes.length || writes[writes.length - 1].data.report_write_digest !== artifact.digest) {
+        return { status: '未通过', detail: '未能回读本轮成功写入且内容一致的 report.txt。' };
+      }
+    }
+    const claims = report ? artifact.claims : { mean: final.data.mean_claims };
+    const fields = report ? ['total', 'mean', 'max', 'min'] : ['mean'];
+    const labels = { total: '总分', mean: '平均分', max: '最高分', min: '最低分' };
+    let correct = true;
+    const details = fields.map(key => {
+      const values = [...new Set(claims?.[key] || [])];
+      const ok = values.length > 0 && values.every(v => Math.abs(v - expected[key]) < (key === 'mean' ? 0.005000001 : 0.000001));
+      correct = correct && ok;
+      return labels[key] + ' ' + (values.join(' / ') || '未识别') + '（期望 ' + expected[key] + '）';
+    });
+    return { status: correct ? '通过' : '未通过', detail: details.join('，') };
+  }
 
-    const llmEvents = ctx.timeline.filter(e => e.event === 'llm_response');
-    const toolCallEvents = ctx.timeline.filter(e => e.event === 'tool_call');
-    const toolResultEvents = ctx.timeline.filter(e => e.event === 'tool_result');
-    const terminal = ctx.timeline.some(e => ['final_answer', 'max_steps', 'error'].includes(e.event));
+  function run(ctx) {
+    const start = ctx.timeline.map(e => e.event).lastIndexOf('user_input');
+    const events = ctx.timeline.slice(Math.max(start, ctx.runStartIndex || 0));
+    const input = events.find(e => e.event === 'user_input');
+    const final = events.find(e => e.event === 'final_answer');
+    const llmEvents = events.filter(e => e.event === 'llm_response');
+    const toolCallEvents = events.filter(e => ['tool_call', 'tool_input_required'].includes(e.event));
+    const toolResultEvents = events.filter(e => e.event === 'tool_result');
+    const terminal = events.some(e => ['final_answer', 'max_steps', 'error'].includes(e.event));
     const tools = toolCallEvents.map(e => e.data?.tool).filter(Boolean);
+    const totalTokens = llmEvents.reduce((sum, e) => {
+      const usage = e.data?.usage || {};
+      return sum + (usage.total_tokens ?? ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0)));
+    }, 0);
     const totalLatency = llmEvents.reduce((s, e) => s + (Number(e.data?.latency_s) || 0), 0);
     const signals = [];
     const pushSignal = (code, severity, evidence, eventId) => {
@@ -41,12 +71,12 @@
       signals.push({ code, severity, label: t.label, fix: t.fix, evidence, eventId });
     };
 
-    for (const e of ctx.timeline.filter(e => e.event === 'error')) {
+    for (const e of events.filter(e => e.event === 'error')) {
       const code = classifyError(e);
       pushSignal(code, 'high', e.data?.error || '运行时错误。', e._id);
     }
 
-    const maxStepsEv = ctx.timeline.find(e => e.event === 'max_steps');
+    const maxStepsEv = events.find(e => e.event === 'max_steps');
     if (maxStepsEv) {
       pushSignal('loop_or_budget', 'high', 'Agent 触达 max_steps 仍未完成,可能存在循环或预算失控。', maxStepsEv._id);
     }
@@ -108,7 +138,7 @@
       // 关键区分:期望工具「缺席」可能是两类完全不同的原因 ——
       //   missingDisabled : 该工具当前未在 TOOLS 面板勾选 → 模型根本拿不到 → 配置问题,不怪模型
       //   missingEnabled  : 工具已启用却没被调用 → 真·模型行为问题(应调未调)
-      const enabledSet = new Set(ctx.enabledTools || []);
+      const enabledSet = new Set(input?.data.enabled_tools || ctx.enabledTools || []);
       const missingDisabled = missing.filter(t => !enabledSet.has(t));
       const missingEnabled = missing.filter(t => enabledSet.has(t));
       configBlocked = missingDisabled.length > 0;
@@ -183,7 +213,7 @@
 
       const needles = active.final_answer_contains || [];
       if (needles.length) {
-        const finalEv = ctx.timeline.find(e => e.event === 'final_answer');
+        const finalEv = events.find(e => e.event === 'final_answer');
         const finalText = String(finalEv?.data?.content || '');
         for (const needle of needles) {
           const hit = finalText.includes(needle);
@@ -197,7 +227,6 @@
         }
       }
 
-      const totalTokens = ctx.totalTokens();
       if (typeof active.max_tokens === 'number' && totalTokens > active.max_tokens) {
         assertions.push({
           name: `token 预算 ≤ ${active.max_tokens}`, ok: false, severity: 'soft',
@@ -215,16 +244,29 @@
           `latency=${totalLatency.toFixed(1)}s 超过预算 ${active.max_latency_s}s。`);
       }
 
+      const pathRules = assertions.filter(a => a.name.startsWith('工具') || a.name.startsWith('预期工具') || a.name.startsWith('禁用工具'));
+      const path = !terminal ? '等待运行' : configBlocked ? '配置阻断' : pathRules.every(a => a.ok) ? '通过' : '未通过';
+      let outcome = { status: '未单独评估', detail: '此用例检查工具调用。' };
+      if (active.result_check) {
+        outcome = scoreResult(active.result_check, input, final, toolResultEvents);
+        if (terminal && outcome.status !== '通过') {
+          assertions.push({ name: '任务结果', ok: false, severity: 'hard', detail: outcome.detail });
+        }
+      } else if (needsPolicy) {
+        outcome = { status: !terminal ? '等待运行' : policyOk ? '通过' : '未通过', detail: '核对工具层拦截事件。' };
+      }
       const hardAssertionsOk = assertions.filter(a => a.severity === 'hard').every(a => a.ok);
       const serious = signals.some(s => s.severity === 'high');
       // configBlocked 时既不算 PASS 也不算模型 FAIL —— 单独的「配置阻断」态,
       // 否则会因为没有 hard 失败而误判成 PASS。
       const passing = terminal && hardAssertionsOk && !serious && !configBlocked;
       const blockedTools = active.expected_tools
-        ? active.expected_tools.filter(t => !new Set(ctx.enabledTools || []).has(t))
+        ? active.expected_tools.filter(t => !new Set(input?.data.enabled_tools || ctx.enabledTools || []).has(t))
         : [];
       benchmark = {
         ok: passing,
+        outcome,
+        path,
         blocked: configBlocked && terminal,   // 「配置阻断」是跑完后的判定;跑前预防交给输入框/卡片横幅
         blockedTools,
         summary: !terminal
@@ -246,15 +288,13 @@
       metrics: [
         { label: 'LLM Steps', value: String(llmEvents.length) },
         { label: 'Tool Calls', value: String(toolCallEvents.length) },
-        { label: 'Tokens', value: String(ctx.totalTokens()) },
+        { label: 'Tokens', value: String(totalTokens) },
         { label: 'Latency', value: totalLatency ? `${totalLatency.toFixed(1)}s` : '0s' },
       ],
       signals,
       terminal,
     };
 
-    diagCache.key = cacheKey;
-    diagCache.value = result;
     return result;
   }
 

@@ -28,6 +28,7 @@ from sse_starlette.sse import EventSourceResponse                    # noqa: E40
 from agent import EVENT_PROTOCOL_VERSION, continue_agent_after_tool, list_configured_providers, run_agent   # noqa: E402
 from evals import BENCHMARK_CASES, CHAT_EXAMPLES, FAILURE_TAXONOMY, MASS_TEMPLATES   # noqa: E402
 from lessons import LESSONS                                          # noqa: E402
+from score_evidence import benchmark_events                           # noqa: E402
 from schemas import ContinueToolRequest, RunAgentRequest              # noqa: E402
 from tools import TOOL_REGISTRY                                      # noqa: E402
 
@@ -102,7 +103,7 @@ async def run(req: RunAgentRequest):
 
     async def event_stream():
         try:
-            async for ev in run_agent(
+            events = run_agent(
                 user_input=req.user_input,
                 system_prompt=req.system_prompt,
                 enabled_tools=req.enabled_tools,
@@ -113,7 +114,8 @@ async def run(req: RunAgentRequest):
                 model_override=req.model_override,
                 custom_tools=req.custom_tools,
                 manual_tools=req.manual_tools,
-            ):
+            )
+            async for ev in benchmark_events(events, req.benchmark_id, req.enabled_tools):
                 # sse_starlette 约定: yield 一个 dict,event 字段是 SSE 的 event name
                 yield {
                     "event": ev.event,
@@ -153,7 +155,7 @@ async def continue_after_tool(req: ContinueToolRequest):
 
     async def event_stream():
         try:
-            async for ev in continue_agent_after_tool(
+            events = continue_agent_after_tool(
                 tool_call_id=req.tool_call_id,
                 tool_result=req.tool_result,
                 enabled_tools=req.enabled_tools,
@@ -163,7 +165,8 @@ async def continue_after_tool(req: ContinueToolRequest):
                 model_override=req.model_override,
                 custom_tools=req.custom_tools,
                 manual_tools=req.manual_tools,
-            ):
+            )
+            async for ev in benchmark_events(events, req.benchmark_id, req.enabled_tools):
                 yield {
                     "event": ev.event,
                     "data": json.dumps(

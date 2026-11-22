@@ -45,8 +45,9 @@
   }
 
   function setMode(ctx, m) {
-    if (m === ctx.mode) return;
+    if (m === ctx.mode || ctx.isRunning || ctx.batchRunning) return;
     ctx.mode = m;
+    if (ctx.inspectorView === 'compare' && !ctx.compareAvailable()) ctx.inspectorView = 'trace';
     localStorage.setItem('agent_pg_mode', m);
     if (m === 'lesson' && !ctx.currentLessonId && ctx.lessons.length) {
       enterLesson(ctx, ctx.lessons[0].id);
@@ -57,8 +58,11 @@
 
   function enterLesson(ctx, id) {
     const lesson = (ctx.lessons || []).find(l => l.id === id);
-    if (!lesson) return;
+    if (!lesson || ctx.isRunning || ctx.batchRunning) return;
+    ctx.nameEvidence = null;
+    ctx.showReplay = false;
     ctx.currentLessonId = id;
+    if (ctx.inspectorView === 'compare' && !ctx.compareAvailable()) ctx.inspectorView = 'trace';
     ctx.lessonStepIdx = 0;
     ctx.lessonComplete = false;
     ctx.showLessonExplanation = false;
@@ -121,7 +125,7 @@
   }
 
   function loadBenchmarkCase(ctx, b) {
-    if (!b) return;
+    if (!b || ctx.isRunning || ctx.batchRunning || ctx.pendingManualTool) return;
     ctx.leftTab = 'eval';
     ctx.activeBenchmarkId = ctx.activeBenchmarkId === b.id ? null : b.id;
     ctx.inspectorView = 'diagnosis';
@@ -133,7 +137,7 @@
   }
 
   async function runAllBenchmarks(ctx) {
-    if (ctx.isRunning || ctx.batchRunning) return;
+    if (ctx.isRunning || ctx.batchRunning || ctx.pendingManualTool) return;
     if (!ctx.benchmarkCases.length) return;
     if (!confirm(`将依次跑 ${ctx.benchmarkCases.length} 条 benchmark cases。每条都会真实调用模型,产生 token 成本。继续?`)) return;
 
@@ -159,12 +163,21 @@
           console.warn('[batch] send threw:', e);
         }
 
+        // A manual tool pauses the same run. Grade only after its continuation finishes.
+        while (ctx.batchRunning && ctx.pendingManualTool) {
+          await new Promise(resolve => { ctx.batchResume = resolve; });
+        }
+        if (!ctx.batchRunning) break;
         ctx.activeBenchmarkId = c.id;
         const diag = ctx.runDiagnosis();
         ctx.batchResults[c.id] = {
           case_id: c.id,
           title: c.title,
           ok: diag.benchmark?.ok || false,
+          incomplete: !diag.terminal,
+          blocked: !!diag.benchmark?.blocked,
+          outcome: diag.benchmark?.outcome,
+          path: diag.benchmark?.path,
           tools: diag.tools,
           signals: diag.signals,
           assertions: diag.assertions || [],
@@ -174,6 +187,7 @@
         };
       }
     } finally {
+      ctx.batchResume = null;
       ctx.maxSteps = savedMaxSteps;
       ctx.batchRunning = false;
       ctx.batchCursor = -1;
@@ -184,11 +198,15 @@
 
   function stopBatchRun(ctx) {
     ctx.batchRunning = false;
+    ctx.batchResume?.();
     if (ctx.isRunning) ctx.cancelRun();
   }
 
   function batchSummary(ctx) {
-    const ids = Object.keys(ctx.batchResults || {});
+    const ids = (ctx.benchmarkCases || []).filter(b => {
+      const record = ctx.batchResults[b.id];
+      return record && !record.incomplete && !record.blocked && (!b.result_check || record.outcome);
+    }).map(b => b.id);
     if (!ids.length) return null;
     const passed = ids.filter(id => ctx.batchResults[id].ok).length;
     return { passed, total: ids.length };

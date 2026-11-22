@@ -256,6 +256,14 @@
       window.AgentLabScenario.stopBatchRun(this);
     },
 
+    verdictLabel(benchmark, record) {
+      if (!record) return '';
+      if (benchmark.result_check && !record.outcome) return '旧版 · 仅路径';
+      if (record.blocked) return '配置阻断';
+      if (record.incomplete) return '未完成';
+      return record.ok ? '✓ PASS' : '✗ FAIL';
+    },
+
     batchSummary() {
       return window.AgentLabScenario.batchSummary(this);
     },
